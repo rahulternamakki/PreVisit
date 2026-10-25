@@ -393,8 +393,12 @@ class TestPhase4ExhaustiveQA(unittest.TestCase):
         self.assertEqual(patient_get.status_code, 200)
         self.assertEqual(patient_get.json()["patient_name"], "QA Regression Test Patient")
 
-        # Clean up
-        del_res = requests.delete(f"{BASE_URL}/api/intakes/{intake_id}", timeout=25)
+        # Clean up (requires doctor auth)
+        del_res = requests.delete(
+            f"{BASE_URL}/api/intakes/{intake_id}",
+            headers=self.auth_headers,
+            timeout=25
+        )
         self.assertIn(del_res.status_code, [200, 204])
 
 if __name__ == "__main__":

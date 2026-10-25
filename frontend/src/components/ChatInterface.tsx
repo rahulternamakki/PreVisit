@@ -54,11 +54,18 @@ export function ChatInterface({
       setClientEmergencyDetected(true);
     }
 
+    const previousText = text;
     setInputText("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-    await onSendMessage(text);
+
+    try {
+      await onSendMessage(text);
+    } catch {
+      // Restore input text on failure so patient never loses their answer
+      setInputText(previousText);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -192,17 +199,28 @@ export function ChatInterface({
 
       {/* Error notification bar */}
       {error && (
-        <div className="px-4 py-2 bg-red-50 dark:bg-red-950/50 border-t border-red-200 dark:border-red-900 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
+        <div className="px-4 py-2.5 bg-red-50 dark:bg-red-950/50 border-t border-red-200 dark:border-red-900 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
             <span>{error}</span>
           </div>
-          <button
-            onClick={onClearError}
-            className="underline hover:text-red-900 font-medium"
-          >
-            Dismiss
-          </button>
+          <div className="flex items-center gap-2">
+            {inputText.trim() && (
+              <button
+                type="button"
+                onClick={() => handleSubmit()}
+                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-[11px] transition-colors"
+              >
+                Retry
+              </button>
+            )}
+            <button
+              onClick={onClearError}
+              className="underline hover:text-red-900 dark:hover:text-red-200 font-medium text-[11px]"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 

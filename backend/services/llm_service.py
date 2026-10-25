@@ -11,14 +11,16 @@ logger = logging.getLogger("previsit.llm_service")
 
 # Emergency detection patterns for acute red flags
 EMERGENCY_PATTERNS = [
-    (r"\b(chest\s+pain|pressure\s+(in|on)\s+(the\s+)?chest|tightness\s+(in|on)\s+(the\s+)?chest|pain\s+radiating\s+to\s+(my\s+)?(arm|jaw|neck|back)|heart\s+attack)\b", "Chest pain / cardiac symptom"),
-    (r"\b((can'?t|cannot|unable\s+to|trouble|difficulty|struggling\s+to)\s+breath\w*|shortness\s+of\s+breath|gasping\s+for\s+air|choking)\b", "Severe respiratory distress"),
-    (r"\b(face\s+(is\s+)?droop\w*|facial\s+droop\w*|drooping\s+face|slurr\w*\s+speech|speech\s+is\s+slurr\w*|arm\s+weakness|numb(ness)?\s+(on\s+)?(one|left|right)\s+side|stroke)\b", "Potential acute stroke warning sign"),
-    (r"\b(throat\s+(is\s+)?clos\w*|tongue\s+(is\s+)?swell\w*|swollen\s+(throat|tongue|lips)|anaphylax\w*)\b", "Severe acute allergic reaction / anaphylaxis"),
-    (r"\b(coughing\s+up\s+blood|vomiting\s+blood|bleeding\s+profusely|gushing\s+blood|uncontrolled\s+bleeding)\b", "Severe acute bleeding"),
-    (r"\b(kill\s+myself|suicid\w*|end\s+my\s+life|want\s+to\s+die|harm\s+myself)\b", "Crisis / self-harm concern"),
-    (r"\b(worst\s+headache\s+of\s+my\s+life|thunderclap\s+headache)\b", "Severe acute thunderclap headache"),
-    (r"\b(passed\s+out|lost\s+consciousness|blacked\s+out)\b", "Sudden syncope / loss of consciousness"),
+    (r"\b(chest\s+(pain|pressure|tightness|discomfort)|((crushing|sharp|severe|tight)\s+(chest\s+)?(pain|pressure|tightness))|(pain|pressure|tightness)\s+(in|on)\s+(the\s+|my\s+)?chest|pain\s+radiating\s+to\s+(my\s+)?(arm|jaw|neck|back)|heart\s+attack|cardiac\s+arrest)\b", "Chest pain / cardiac emergency"),
+    (r"\b((can'?t|cannot|unable\s+to|trouble|difficulty|struggling\s+to)\s+breath\w*|shortness\s+of\s+breath|gasping\s+for\s+air|choking|suffocat\w*|severe\s+asthma\s+attack|respiratory\s+arrest)\b", "Severe respiratory distress"),
+    (r"\b(face\s+(is\s+)?droop\w*|facial\s+droop\w*|drooping\s+face|slurr\w*\s+speech|speech\s+is\s+slurr\w*|arm\s+weakness|numb(ness)?\s+(on\s+)?(one|left|right)\s+side|stroke|transient\s+ischemic)\b", "Acute stroke / neurological warning sign"),
+    (r"\b(throat\s+(is\s+)?clos\w*|tongue\s+(is\s+)?swell\w*|swollen\s+(throat|tongue|lips)|anaphylax\w*|severe\s+allergic\s+reaction)\b", "Severe acute allergic reaction / anaphylaxis"),
+    (r"\b(coughing\s+up\s+blood|vomiting\s+blood|bleeding\s+profusely|gushing\s+blood|uncontrolled\s+bleeding|severe\s+hemorrhage)\b", "Severe acute hemorrhage / internal bleeding"),
+    (r"\b(kill\s+myself|suicid\w*|end\s+my\s+life|want\s+to\s+die|harm\s+myself|take\s+my\s+own\s+life)\b", "Crisis / acute self-harm concern"),
+    (r"\b(worst\s+headache\s+of\s+my\s+life|thunderclap\s+headache|sudden\s+explosive\s+headache)\b", "Severe acute thunderclap headache"),
+    (r"\b(passed\s+out|lost\s+consciousness|blacked\s+out|unresponsive|fainted\s+suddenly)\b", "Acute syncope / loss of consciousness"),
+    (r"\b(seiz\w*|convuls\w*|fit\s+and\s+shaking|having\s+a\s+fit)\b", "Active seizure / convulsing episode"),
+    (r"\b(overdose|poison\w*|swallowed\s+(pills|chemical|toxic)|drank\s+bleach)\b", "Acute poisoning / overdose emergency"),
 ]
 
 def detect_emergency(text: str) -> Optional[Dict[str, str]]:
@@ -34,6 +36,7 @@ def detect_emergency(text: str) -> Optional[Dict[str, str]]:
                 "patient_quote": text.strip(),
                 "severity": "emergency"
             }
+    return None
 UNINFORMATIVE_RESPONSES = {
     "yes", "no", "ok", "okay", "hi", "hello", "hey", "sure", "fine", "good",
     "bad", "test", "idk", "nothing", "none", "thanks", "thank you", "nope", "yep"
@@ -326,40 +329,50 @@ class LLMService:
                     "content": msg.get("content", "")
                 })
 
-        try:
-            logger.info(f"Calling Groq model {settings.GROQ_MODEL} with {len(messages)} messages.")
-            response = client.chat.completions.create(
-                model=settings.GROQ_MODEL,
-                messages=messages,
-                temperature=0.3,
-                max_tokens=1000,
-            )
+        models_to_try = [settings.GROQ_MODEL]
+        if getattr(settings, "GROQ_FALLBACK_MODEL", None) and settings.GROQ_FALLBACK_MODEL != settings.GROQ_MODEL:
+            models_to_try.append(settings.GROQ_FALLBACK_MODEL)
 
-            raw_reply = response.choices[0].message.content or ""
-            raw_reply = raw_reply.strip()
-
-            # Check for completion token
-            is_completed = False
-            if "[INTAKE_COMPLETE]" in raw_reply:
-                is_completed = True
-                cleaned_reply = raw_reply.replace("[INTAKE_COMPLETE]", "").strip()
-            else:
-                cleaned_reply = raw_reply
-
-            # Ensure closing or question content is never blank
-            if is_completed and not cleaned_reply:
-                cleaned_reply = (
-                    f"Thank you, {patient_name}. I have collected all the necessary details for your visit. "
-                    "Your doctor will review this information before your consultation."
+        last_err = None
+        for model_name in models_to_try:
+            try:
+                logger.info(f"Calling Groq model {model_name} with {len(messages)} messages.")
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=1000,
                 )
-            elif not cleaned_reply:
-                cleaned_reply = "Could you tell me a little more about your current symptoms or medications?"
 
-            return cleaned_reply, is_completed
+                raw_reply = response.choices[0].message.content or ""
+                raw_reply = raw_reply.strip()
 
-        except Exception as e:
-            logger.error(f"Error calling Groq LLM: {e}")
-            raise RuntimeError(f"LLM generation failed: {e}")
+                # Check for completion token
+                is_completed = False
+                if "[INTAKE_COMPLETE]" in raw_reply:
+                    is_completed = True
+                    cleaned_reply = raw_reply.replace("[INTAKE_COMPLETE]", "").strip()
+                else:
+                    cleaned_reply = raw_reply
+
+                # Ensure closing or question content is never blank
+                if is_completed and not cleaned_reply:
+                    cleaned_reply = (
+                        f"Thank you, {patient_name}. I have collected all the necessary details for your visit. "
+                        "Your doctor will review this information before your consultation."
+                    )
+                elif not cleaned_reply:
+                    cleaned_reply = "Could you tell me a little more about your current symptoms or medications?"
+
+                return cleaned_reply, is_completed
+
+            except Exception as e:
+                last_err = e
+                logger.warning(f"Groq chat generation failed with model {model_name}: {type(e).__name__}. Trying fallback...")
+                continue
+
+        logger.error(f"Error calling Groq LLM across available models: {type(last_err).__name__}")
+        raise RuntimeError(f"LLM generation failed: {last_err}")
 
     @classmethod
     def generate_summary_and_red_flags(
@@ -374,6 +387,7 @@ class LLMService:
         and detects urgent red flags with exact patient quotes.
         
         Strictly validates output using Pydantic and automatically retries once if validation fails.
+        Logs are strictly de-identified to comply with healthcare privacy regulations.
         """
         # Ensure there are patient statements
         user_messages = [m for m in transcript if m.get("role") == "user"]
@@ -399,29 +413,44 @@ class LLMService:
             {"role": "user", "content": user_prompt}
         ]
 
-        # Attempt 1
-        logger.info(f"Generating clinical summary for {patient_name} (Attempt 1 of 2)...")
+        def call_groq_json(target_messages: List[Dict[str, str]]) -> str:
+            """Calls Groq with primary model and automatic fallback on transient failure."""
+            models_to_try = [settings.GROQ_MODEL]
+            if getattr(settings, "GROQ_FALLBACK_MODEL", None) and settings.GROQ_FALLBACK_MODEL != settings.GROQ_MODEL:
+                models_to_try.append(settings.GROQ_FALLBACK_MODEL)
+            
+            call_err = None
+            for model_name in models_to_try:
+                try:
+                    res = client.chat.completions.create(
+                        model=model_name,
+                        messages=target_messages,
+                        temperature=0.1,
+                        max_tokens=2000,
+                        response_format={"type": "json_object"}
+                    )
+                    return res.choices[0].message.content or ""
+                except Exception as e:
+                    call_err = e
+                    logger.warning(f"Groq summary call failed with model {model_name}: {type(e).__name__}. Trying fallback...")
+                    continue
+            raise RuntimeError(f"Groq summary call failed across all models: {call_err}")
+
+        # Attempt 1 (De-identified logging for privacy)
+        logger.info("Generating clinical summary (Attempt 1 of 2)...")
         raw_output_attempt_1 = ""
         last_error_msg = ""
         try:
-            response = client.chat.completions.create(
-                model=settings.GROQ_MODEL,
-                messages=messages,
-                temperature=0.1,
-                max_tokens=2000,
-                response_format={"type": "json_object"}
-            )
-            raw_output_attempt_1 = response.choices[0].message.content or ""
+            raw_output_attempt_1 = call_groq_json(messages)
             return parse_and_validate_summary_json(raw_output_attempt_1, transcript, patient_name)
 
         except (json.JSONDecodeError, ValidationError, ValueError) as err:
             last_error_msg = str(err)
             logger.warning(
-                f"Summary generation attempt 1 failed validation for {patient_name}: {last_error_msg}. "
-                "Initiating automatic retry 1 of 1 with corrective feedback..."
+                "Summary generation attempt 1 failed validation. Initiating automatic retry 1 of 1 with corrective feedback..."
             )
 
-        # Attempt 2 (Automatic Retry)
+        # Attempt 2 (Automatic Retry with Schema & Grounding Feedback)
         corrective_user_message = (
             f"Your previous JSON response failed validation with the following error:\n{last_error_msg}\n\n"
             f"Please regenerate the complete JSON object, strictly fixing this error:\n"
@@ -439,19 +468,12 @@ class LLMService:
         ]
 
         try:
-            logger.info(f"Retrying clinical summary generation for {patient_name} (Attempt 2 of 2)...")
-            response = client.chat.completions.create(
-                model=settings.GROQ_MODEL,
-                messages=retry_messages,
-                temperature=0.1,
-                max_tokens=2000,
-                response_format={"type": "json_object"}
-            )
-            raw_output_attempt_2 = response.choices[0].message.content or ""
+            logger.info("Retrying clinical summary generation (Attempt 2 of 2)...")
+            raw_output_attempt_2 = call_groq_json(retry_messages)
             validated = parse_and_validate_summary_json(raw_output_attempt_2, transcript, patient_name)
-            logger.info(f"Clinical summary generation succeeded on retry for {patient_name}.")
+            logger.info("Clinical summary generation succeeded on retry.")
             return validated
 
         except Exception as retry_err:
-            logger.error(f"Clinical summary generation failed after retry: {retry_err}")
+            logger.error(f"Clinical summary generation failed after retry: {type(retry_err).__name__}")
             raise RuntimeError(f"Clinical summary generation failed validation after retry: {retry_err}")

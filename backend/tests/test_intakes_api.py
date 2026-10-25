@@ -2,11 +2,14 @@ import unittest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from main import app
+from services.auth_service import create_doctor_token
 
 class TestIntakesAPI(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
         self.sample_uuid = "123e4567-e89b-12d3-a456-426614174000"
+        self.doctor_token = create_doctor_token()
+        self.auth_headers = {"Authorization": f"Bearer {self.doctor_token}"}
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -185,6 +188,11 @@ class TestIntakesAPI(unittest.TestCase):
 
     @patch("services.intake_service.get_supabase_client")
     def test_delete_intake_success(self, mock_get_client):
+        # 1. Unauthenticated request must be rejected with 401
+        unauth_response = self.client.delete(f"/api/intakes/{self.sample_uuid}")
+        self.assertEqual(unauth_response.status_code, 401)
+
+        # 2. Authenticated request succeeds with 204
         mock_supabase = MagicMock()
         mock_get_client.return_value = mock_supabase
 
@@ -205,11 +213,16 @@ class TestIntakesAPI(unittest.TestCase):
         mock_supabase.table().select().eq().execute.return_value.data = [existing_row]
         mock_supabase.table().delete().eq().execute.return_value.data = [existing_row]
 
-        response = self.client.delete(f"/api/intakes/{self.sample_uuid}")
+        response = self.client.delete(f"/api/intakes/{self.sample_uuid}", headers=self.auth_headers)
         self.assertEqual(response.status_code, 204)
 
     @patch("services.intake_service.get_supabase_client")
     def test_list_intakes_success(self, mock_get_client):
+        # 1. Unauthenticated request must be rejected with 401
+        unauth_response = self.client.get("/api/intakes?status=completed")
+        self.assertEqual(unauth_response.status_code, 401)
+
+        # 2. Authenticated request succeeds with 200
         mock_supabase = MagicMock()
         mock_get_client.return_value = mock_supabase
 
@@ -235,7 +248,7 @@ class TestIntakesAPI(unittest.TestCase):
         query_mock.range.return_value = query_mock
         query_mock.execute.return_value.data = records
 
-        response = self.client.get("/api/intakes?status=completed")
+        response = self.client.get("/api/intakes?status=completed", headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)

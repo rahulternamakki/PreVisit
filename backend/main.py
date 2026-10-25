@@ -4,12 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from rate_limiter import limiter
 from config import settings
 from database import check_database_connection
 from routers.intakes import router as intakes_router
 from routers.doctor import router as doctor_router
-
-limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="PreVisit API",
@@ -19,7 +18,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS setup
+# CORS setup - strictly allow configured frontend origin and local dev
 origins = list(set([
     settings.FRONTEND_URL.rstrip("/"),
     "http://localhost:3000",
@@ -30,9 +29,19 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
 )
+
+# HTTP Security Headers Middleware (OWASP recommended defense-in-depth)
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # Include Routers
 app.include_router(intakes_router)

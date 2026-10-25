@@ -1,8 +1,7 @@
 import logging
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from rate_limiter import limiter
 
 from schemas.doctor import (
     DoctorLoginRequest,
@@ -21,7 +20,6 @@ from services.doctor_service import DoctorService
 from services.intake_service import IntakeNotFoundError
 
 logger = logging.getLogger("previsit.routers.doctor")
-limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/api/doctor", tags=["Doctor Dashboard"])
 
@@ -30,7 +28,7 @@ router = APIRouter(prefix="/api/doctor", tags=["Doctor Dashboard"])
     response_model=DoctorLoginResponse,
     summary="Authenticate doctor with passcode"
 )
-@limiter.limit("60/minute")
+@limiter.limit("30/minute")
 def doctor_login(request: Request, payload: DoctorLoginRequest):
     """
     Verifies the doctor security passcode and returns a secure JWT session token.
@@ -150,7 +148,9 @@ def update_intake_review_status(
     "/seed-samples",
     summary="Seed realistic clinical demonstration cases (urgent + routine)"
 )
+@limiter.limit("5/minute")
 def seed_clinical_samples(
+    request: Request,
     doctor: dict = Depends(get_current_doctor),
 ):
     """
@@ -173,8 +173,8 @@ def seed_clinical_samples(
             ]
         }
     except Exception as e:
-        logger.error(f"Error seeding demo intakes: {e}")
+        logger.error(f"Error seeding demo intakes: {type(e).__name__}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to seed demonstration samples: {e}",
+            detail="Failed to seed demonstration samples.",
         )

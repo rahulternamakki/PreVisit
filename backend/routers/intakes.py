@@ -1,8 +1,7 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from fastapi import APIRouter, HTTPException, Query, Request, Depends, status
+from rate_limiter import limiter
 from schemas.intake import (
     IntakeCreate,
     IntakeUpdate,
@@ -12,10 +11,9 @@ from schemas.intake import (
     ChatResponse,
 )
 from services.intake_service import IntakeService, IntakeNotFoundError
+from services.auth_service import get_current_doctor
 
 logger = logging.getLogger("previsit.routers.intakes")
-
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/intakes", tags=["Intakes"])
 
 def _handle_value_error(e: ValueError):
@@ -31,7 +29,8 @@ def _handle_value_error(e: ValueError):
     status_code=status.HTTP_201_CREATED,
     summary="Create a new patient intake session"
 )
-def create_intake(payload: IntakeCreate):
+@limiter.limit("20/minute")
+def create_intake(request: Request, payload: IntakeCreate):
     """
     Initializes a patient intake record when the patient enters name and age.
     Securely stored in Supabase with RLS enabled.
@@ -42,7 +41,7 @@ def create_intake(payload: IntakeCreate):
     except ValueError as e:
         _handle_value_error(e)
     except Exception as e:
-        logger.error(f"Error creating intake: {e}")
+        logger.error(f"Error creating intake: {type(e).__name__}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
 
 @router.get(
@@ -159,7 +158,8 @@ def mark_intake_complete(intake_id: str):
     response_model=IntakeResponse,
     summary="Generate or re-generate clinical summary (alias)"
 )
-def generate_summary(intake_id: str):
+@limiter.limit("15/minute")
+def generate_summary(request: Request, intake_id: str):
     """
     Analyzes patient conversation transcript, generates a structured clinical summary,
     extracts red flags with exact patient quotes, strictly validates against Pydantic schema
@@ -172,8 +172,8 @@ def generate_summary(intake_id: str):
     except ValueError as e:
         _handle_value_error(e)
     except Exception as e:
-        logger.error(f"Error generating summary for intake {intake_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate clinical summary: {e}")
+        logger.error(f"Error generating summary for intake: {type(e).__name__}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate clinical summary.")
 
 @router.get(
     "/{intake_id}/summary",
@@ -207,17 +207,20 @@ def get_intake_summary(intake_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching summary for intake {intake_id}: {e}")
+        logger.error(f"Error fetching summary: {type(e).__name__}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error.")
 
 @router.delete(
     "/{intake_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete an intake session"
+    summary="Delete an intake session (Doctor authorized only)"
 )
-def delete_intake(intake_id: str):
+def delete_intake(
+    intake_id: str,
+    doctor: dict = Depends(get_current_doctor)
+):
     """
-    Permanently deletes an intake session.
+    Permanently deletes an intake session. Requires doctor authentication.
     """
     try:
         IntakeService.delete_intake(intake_id)
@@ -227,27 +230,28 @@ def delete_intake(intake_id: str):
     except ValueError as e:
         _handle_value_error(e)
     except Exception as e:
-        logger.error(f"Error deleting intake {intake_id}: {e}")
+        logger.error(f"Error deleting intake: {type(e).__name__}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
 
 @router.get(
     "",
     response_model=List[IntakeResponse],
-    summary="List intakes for Doctor Dashboard"
+    summary="List intakes for Doctor Dashboard (Doctor authorized only)"
 )
 def list_intakes(
     status: Optional[str] = Query(None, description="Filter by status (e.g. completed, in_progress)"),
     urgency_level: Optional[str] = Query(None, description="Filter by urgency (routine, urgent, emergency)"),
     limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    doctor: dict = Depends(get_current_doctor)
 ):
     """
-    Lists intake records with optional filtering. Used by the Doctor Dashboard triage queue.
+    Lists intake records with optional filtering. Requires doctor authentication to protect patient PHI.
     """
     try:
         return IntakeService.list_intakes(status=status, urgency_level=urgency_level, limit=limit, offset=offset)
     except ValueError as e:
         _handle_value_error(e)
     except Exception as e:
-        logger.error(f"Error listing intakes: {e}")
+        logger.error(f"Error listing intakes: {type(e).__name__}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")

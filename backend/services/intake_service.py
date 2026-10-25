@@ -30,11 +30,28 @@ class IntakeService:
         first adaptive intake question so the chat is ready immediately.
         """
         client = get_supabase_client()
-        opening_text = LLMService.generate_opening_message(
-            patient_name=data.patient_name,
-            patient_age=data.patient_age,
-            chief_complaint=data.chief_complaint
-        )
+        red_flags = []
+        urgency_level = "routine"
+        if data.chief_complaint and data.chief_complaint.strip():
+            emergency_match = detect_emergency(data.chief_complaint)
+            if emergency_match:
+                red_flags.append(emergency_match)
+                urgency_level = "emergency"
+
+        if urgency_level == "emergency":
+            opening_text = (
+                f"Hello {data.patient_name}, welcome to PreVisit. ⚠️ IMPORTANT SAFETY NOTICE: You noted \"{data.chief_complaint.strip()}\", "
+                f"which may be a medical emergency. If you are experiencing acute distress, please call 911 (or 988 for crisis) "
+                f"or proceed to an emergency department immediately. If you are safe to continue answering questions for your doctor, "
+                f"could you tell me when this first began?"
+            )
+        else:
+            opening_text = LLMService.generate_opening_message(
+                patient_name=data.patient_name,
+                patient_age=data.patient_age,
+                chief_complaint=data.chief_complaint
+            )
+
         opening_message = {
             "role": "assistant",
             "content": opening_text,
@@ -46,8 +63,8 @@ class IntakeService:
             "patient_age": data.patient_age,
             "chief_complaint": data.chief_complaint,
             "chat_transcript": [opening_message],
-            "red_flags": [],
-            "urgency_level": "routine",
+            "red_flags": red_flags,
+            "urgency_level": urgency_level,
             "status": "in_progress"
         }
         res = client.table("intakes").insert(payload).execute()
@@ -170,6 +187,12 @@ class IntakeService:
             chief_complaint=chief_complaint
         )
 
+        # Enforce high-visibility emergency directive if emergency was detected
+        if emergency_detected:
+            emergency_prefix = "⚠️ URGENT SAFETY NOTICE: Your described symptoms may indicate a medical emergency. Please call 911 (or 988 for crisis support) or go to the nearest emergency department immediately.\n\n"
+            if not assistant_reply.startswith("⚠️") and "911" not in assistant_reply:
+                assistant_reply = emergency_prefix + assistant_reply
+
         # 4. Chief Complaint auto-fill only if user provided a meaningful health complaint
         if not chief_complaint or not chief_complaint.strip():
             clean_text = user_text.strip()
@@ -213,7 +236,7 @@ class IntakeService:
             try:
                 updated_intake = IntakeService.generate_and_save_summary(valid_id)
             except Exception as e:
-                logger.error(f"Automatic summary generation failed on completion for intake {valid_id}: {e}")
+                logger.error(f"Automatic summary generation failed on completion for intake {valid_id}: {type(e).__name__}")
 
         return {
             "message": assistant_entry,

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { IntakeSession } from "@/types/intake";
 import { generateSummary } from "@/lib/api";
+import { EmergencyBanner } from "@/components/EmergencyBanner";
 
 interface IntakeCompletedViewProps {
   intake: IntakeSession;
@@ -64,6 +65,13 @@ export function IntakeCompletedView({
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6 print:max-w-none print:m-0 print:p-0">
+      {/* Acute Emergency Banner */}
+      {isEmergency && (
+        <div className="print:hidden">
+          <EmergencyBanner redFlags={redFlags} />
+        </div>
+      )}
+
       {/* Main Card */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-xl shadow-zinc-200/40 dark:shadow-none p-6 sm:p-8 space-y-6 text-left transition-colors print:shadow-none print:border-none print:p-0">
         

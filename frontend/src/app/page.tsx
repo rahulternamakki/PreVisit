@@ -120,6 +120,7 @@ export default function Home() {
       setError(msg);
       // Revert optimistic transcript on error
       setIntake(previousIntake);
+      throw err;
     } finally {
       setIsLoading(false);
     }
