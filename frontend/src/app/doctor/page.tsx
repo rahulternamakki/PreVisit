@@ -188,31 +188,107 @@ function DoctorDashboardContent() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="flex flex-col items-center gap-3 text-zinc-500">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-          <p className="text-xs font-semibold">Validating doctor session...</p>
+      <div
+        style={{
+          minHeight: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--bg-base)",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "13px",
+              background: "var(--pv-indigo-50)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Loader2
+              style={{
+                width: "22px",
+                height: "22px",
+                color: "var(--pv-indigo-600)",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+          </div>
+          <p style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-quaternary)" }}>
+            Validating session…
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "280px" }}>
+            <div className="skeleton" style={{ height: "14px", width: "70%" }} />
+            <div className="skeleton" style={{ height: "10px", width: "50%" }} />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50/70 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors print:bg-white print:text-black">
+    <div
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-base)",
+        color: "var(--text-primary)",
+        fontFamily: "var(--font-sans)",
+      }}
+      className="print:bg-white print:text-black"
+    >
       <Header
         mode="doctor"
         isBackendConnected={isBackendHealthy}
         onLogout={isAuthenticated ? handleLogout : undefined}
       />
 
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 print:p-0 print:m-0 print:max-w-none">
-        {/* Toast Notification */}
+      <main
+        style={{
+          flex: 1,
+          width: "100%",
+          maxWidth: "1080px",
+          margin: "0 auto",
+          padding: "clamp(16px, 4vw, 32px) clamp(16px, 4vw, 24px)",
+        }}
+        className="print:p-0 print:m-0 print:max-w-none"
+      >
+        {/* Toast */}
         {toastMessage && (
-          <div className="mb-4 p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300 text-xs font-semibold flex items-center justify-between animate-fade-in shadow-sm">
-            <span>{toastMessage}</span>
+          <div
+            className="animate-fade-in"
+            style={{
+              marginBottom: "16px",
+              padding: "12px 16px",
+              borderRadius: "var(--radius-xl)",
+              background: "var(--pv-indigo-50)",
+              border: "1px solid var(--pv-indigo-100, #e0e7ff)",
+              color: "var(--pv-indigo-700)",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <span>✓ {toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-xs underline ml-2"
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--pv-indigo-600)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                textDecoration: "underline",
+                padding: "0 0 0 8px",
+              }}
             >
               Dismiss
             </button>
@@ -222,25 +298,79 @@ function DoctorDashboardContent() {
         {!isAuthenticated ? (
           <DoctorLoginView onLoginSuccess={handleLoginSuccess} />
         ) : selectedIntakeId ? (
-          /* Detailed Patient Summary View */
           isLoadingDetail ? (
-            <div className="py-24 flex flex-col items-center justify-center gap-3 text-zinc-500">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-              <p className="text-sm font-semibold">Loading clinical summary & red flags...</p>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "16px",
+                padding: "80px 20px",
+                color: "var(--text-quaternary)",
+              }}
+            >
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "13px",
+                  background: "var(--pv-indigo-50)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Loader2
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    color: "var(--pv-indigo-600)",
+                    animation: "spin 1s linear infinite",
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--text-tertiary)" }}>
+                Loading clinical summary & red flags…
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "400px", maxWidth: "100%" }}>
+                <div className="skeleton" style={{ height: "80px", borderRadius: "var(--radius-xl)" }} />
+                <div className="skeleton" style={{ height: "120px", borderRadius: "var(--radius-xl)" }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div className="skeleton" style={{ height: "60px", borderRadius: "var(--radius-lg)" }} />
+                  <div className="skeleton" style={{ height: "60px", borderRadius: "var(--radius-lg)" }} />
+                </div>
+              </div>
             </div>
           ) : detailError ? (
-            <div className="p-6 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-300 space-y-3 text-left">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-                <h3 className="font-bold text-sm">Error Loading Clinical Intake</h3>
+            <div
+              className="animate-fade-in"
+              style={{
+                padding: "24px",
+                borderRadius: "var(--radius-xl)",
+                background: "var(--pv-danger-bg)",
+                border: "1px solid var(--pv-danger-border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                maxWidth: "600px",
+                margin: "32px auto",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--pv-danger)" }}>
+                <AlertCircle style={{ width: "18px", height: "18px" }} />
+                <h3 style={{ fontSize: "0.9375rem", fontWeight: 700, margin: 0, color: "#b91c1c" }}>
+                  Error Loading Clinical Intake
+                </h3>
               </div>
-              <p className="text-xs">{detailError}</p>
+              <p style={{ fontSize: "0.875rem", color: "#b91c1c", margin: 0 }}>{detailError}</p>
               <button
                 type="button"
                 onClick={handleBackToQueue}
-                className="px-3.5 py-2 rounded-xl bg-red-100 text-red-800 text-xs font-bold"
+                className="pv-btn-secondary"
+                style={{ alignSelf: "flex-start", fontSize: "0.875rem" }}
               >
-                Return to Queue
+                ← Return to Queue
               </button>
             </div>
           ) : selectedIntake ? (
@@ -252,7 +382,6 @@ function DoctorDashboardContent() {
             />
           ) : null
         ) : (
-          /* Priority Triage Queue */
           <DoctorQueueView
             items={queueItems}
             stats={stats}
@@ -278,8 +407,23 @@ export default function DoctorPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <div
+          style={{
+            minHeight: "100dvh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--bg-base)",
+          }}
+        >
+          <Loader2
+            style={{
+              width: "24px",
+              height: "24px",
+              color: "var(--pv-indigo-600)",
+              animation: "spin 1s linear infinite",
+            }}
+          />
         </div>
       }
     >
@@ -287,3 +431,4 @@ export default function DoctorPage() {
     </Suspense>
   );
 }
+

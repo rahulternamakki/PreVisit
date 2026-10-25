@@ -1,20 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
   title: "PreVisit | AI Patient Clinical Intake",
-  description: "AI-powered adaptive patient intake that prepares clinical summaries for your doctor.",
+  description:
+    "AI-powered adaptive patient intake that prepares clinical summaries for your doctor — secure, structured, and physician-ready.",
+  keywords: ["clinical intake", "patient intake", "AI health", "medical assistant"],
+  openGraph: {
+    title: "PreVisit | AI Patient Clinical Intake",
+    description: "AI-powered pre-visit intake that prepares your doctor before you arrive.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -25,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

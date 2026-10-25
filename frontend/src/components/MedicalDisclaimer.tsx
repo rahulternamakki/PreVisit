@@ -1,57 +1,133 @@
 "use client";
 
 import React, { useState } from "react";
-import { Info, ShieldAlert, X } from "lucide-react";
+import { Info, ShieldAlert, X, ChevronDown } from "lucide-react";
 
 export function MedicalDisclaimer() {
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) {
     return (
-      <div className="bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400 flex items-center justify-between rounded-lg">
-        <span className="flex items-center gap-1.5 font-medium">
-          <Info className="w-3.5 h-3.5" />
-          PreVisit is an intake assistant only — not medical advice.
-        </span>
-        <button
-          onClick={() => setDismissed(false)}
-          className="underline hover:text-amber-800 text-[11px]"
-        >
-          View Notice
-        </button>
-      </div>
+      <button
+        onClick={() => setDismissed(false)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "6px 10px",
+          borderRadius: "8px",
+          background: "rgba(245,158,11,0.08)",
+          border: "1px solid rgba(245,158,11,0.2)",
+          color: "var(--pv-warning)",
+          fontSize: "0.75rem",
+          fontWeight: 500,
+          cursor: "pointer",
+          width: "100%",
+          textAlign: "left",
+          transition: "background var(--duration-normal)",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.12)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.08)";
+        }}
+      >
+        <Info style={{ width: "13px", height: "13px", flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>Important: PreVisit is an intake assistant — not medical advice</span>
+        <ChevronDown style={{ width: "13px", height: "13px", opacity: 0.6 }} />
+      </button>
     );
   }
 
   return (
-    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3.5 text-xs text-amber-900 dark:text-amber-300 shadow-xs relative transition-all">
-      <div className="flex items-start gap-3">
-        <div className="p-1.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-lg shrink-0">
-          <ShieldAlert className="w-4 h-4" />
+    <div
+      className="animate-fade-in"
+      style={{
+        background: "var(--pv-warning-bg)",
+        border: "1px solid var(--pv-warning-border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "14px 16px",
+        position: "relative",
+      }}
+    >
+      <button
+        onClick={() => setDismissed(true)}
+        style={{
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "6px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
+          border: "none",
+          color: "var(--pv-warning)",
+          cursor: "pointer",
+          opacity: 0.7,
+          transition: "opacity var(--duration-fast), background var(--duration-fast)",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.opacity = "1";
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.12)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.opacity = "0.7";
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+        }}
+        title="Dismiss"
+        aria-label="Dismiss disclaimer"
+      >
+        <X style={{ width: "13px", height: "13px" }} />
+      </button>
+
+      <div style={{ display: "flex", gap: "12px", paddingRight: "24px" }}>
+        <div
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "8px",
+            background: "rgba(245,158,11,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            color: "var(--pv-warning)",
+          }}
+        >
+          <ShieldAlert style={{ width: "16px", height: "16px" }} />
         </div>
-        <div className="space-y-1 pr-6">
-          <p className="font-semibold text-amber-950 dark:text-amber-200 text-sm">
+
+        <div style={{ flex: 1 }}>
+          <p
+            style={{
+              fontSize: "0.8125rem",
+              fontWeight: 700,
+              color: "#92400e",
+              marginBottom: "4px",
+              lineHeight: 1.3,
+            }}
+          >
             Important Medical Disclaimer
           </p>
-          <p className="text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
-            PreVisit is designed solely to gather preliminary health history for your
-            doctor before your appointment. This service <strong>does not provide medical diagnoses,
-            treatment recommendations, or emergency services</strong>.
+          <p
+            style={{
+              fontSize: "0.75rem",
+              color: "#b45309",
+              lineHeight: 1.55,
+              marginBottom: "4px",
+            }}
+          >
+            PreVisit collects preliminary health history for your doctor.{" "}
+            <strong>It does not provide diagnoses, treatment recommendations, or emergency services.</strong>
           </p>
-          <p className="text-amber-800/90 dark:text-amber-300/80">
-            If you are experiencing life-threatening symptoms (such as acute chest pain,
-            difficulty breathing, or severe bleeding), immediately call <strong>911</strong> or
-            proceed to the nearest emergency department.
+          <p style={{ fontSize: "0.75rem", color: "#b45309", lineHeight: 1.55 }}>
+            For life-threatening symptoms — call <strong>911</strong> or go to the nearest emergency department immediately.
           </p>
         </div>
-        <button
-          onClick={() => setDismissed(true)}
-          className="absolute top-3 right-3 text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 p-1 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
-          title="Dismiss disclaimer"
-          aria-label="Dismiss disclaimer"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
       </div>
     </div>
   );

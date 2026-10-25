@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertOctagon, PhoneCall, HeartPulse } from "lucide-react";
+import { AlertOctagon, PhoneCall, HeartPulse, X } from "lucide-react";
 import { RedFlag } from "@/types/intake";
 
 interface EmergencyBannerProps {
@@ -11,49 +11,162 @@ interface EmergencyBannerProps {
 
 export function EmergencyBanner({ redFlags, customMessage }: EmergencyBannerProps) {
   return (
-    <div className="bg-red-500 text-white p-4 rounded-xl shadow-lg border-2 border-red-600 animate-pulse">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-white/20 rounded-lg shrink-0">
-            <AlertOctagon className="w-6 h-6 text-white" />
+    <div
+      className="animate-fade-in"
+      style={{
+        background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+        borderRadius: "var(--radius-xl)",
+        padding: "16px 20px",
+        border: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "0 4px 20px rgba(220,38,38,0.35)",
+      }}
+      role="alert"
+      aria-live="assertive"
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "10px",
+              background: "rgba(255,255,255,0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <AlertOctagon style={{ width: "22px", height: "22px", color: "#fff" }} />
           </div>
-          <div>
-            <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
-              <span>URGENT: Potential Medical Emergency Detected</span>
+
+          <div style={{ flex: 1 }}>
+            <h3
+              style={{
+                fontSize: "0.9375rem",
+                fontWeight: 800,
+                color: "#fff",
+                marginBottom: "3px",
+                letterSpacing: "-0.01em",
+                lineHeight: 1.2,
+              }}
+            >
+              ⚠ URGENT: Potential Medical Emergency
             </h3>
-            <p className="text-sm text-red-50 font-medium mt-0.5 leading-snug">
+            <p
+              style={{
+                fontSize: "0.8125rem",
+                color: "rgba(255,255,255,0.87)",
+                lineHeight: 1.5,
+              }}
+            >
               {customMessage ||
-                "Your reported symptoms may require immediate clinical attention. Please do not wait for your scheduled appointment."}
+                "Your reported symptoms may require immediate attention. Do not wait for your scheduled appointment."}
             </p>
-            {redFlags && redFlags.length > 0 && (
-              <div className="mt-2 text-xs bg-red-600/60 p-2 rounded-md">
-                <span className="font-semibold">Flagged: </span>
-                {redFlags.map((rf, idx) => (
-                  <span key={idx} className="italic">
-                    &ldquo;{rf.patient_quote}&rdquo; ({rf.reason})
-                    {idx < redFlags.length - 1 ? "; " : ""}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
+        {/* Red flags detail */}
+        {redFlags && redFlags.length > 0 && (
+          <div
+            style={{
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: "10px",
+              padding: "10px 14px",
+              fontSize: "0.75rem",
+              color: "rgba(255,255,255,0.87)",
+              lineHeight: 1.6,
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <span style={{ fontWeight: 700, color: "#fff" }}>Flagged: </span>
+            {redFlags.map((rf, idx) => (
+              <span key={idx} style={{ fontStyle: "italic" }}>
+                &ldquo;{rf.patient_quote}&rdquo; ({rf.reason})
+                {idx < redFlags.length - 1 ? " · " : ""}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* CTA Buttons */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+          }}
+        >
           <a
             href="tel:911"
-            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 bg-white text-red-600 font-bold px-4 py-2.5 rounded-lg shadow-sm hover:bg-red-50 transition-colors text-sm"
+            style={{
+              flex: 1,
+              minWidth: "120px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "10px 16px",
+              borderRadius: "10px",
+              background: "#fff",
+              color: "#dc2626",
+              fontWeight: 800,
+              fontSize: "0.875rem",
+              textDecoration: "none",
+              transition: "transform var(--duration-fast), box-shadow var(--duration-fast)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
+              (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+              (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+            }}
           >
-            <PhoneCall className="w-4 h-4" />
-            <span>Call 911</span>
+            <PhoneCall style={{ width: "16px", height: "16px" }} />
+            Call 911
           </a>
+
           <a
             href="tel:988"
-            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white font-semibold px-3 py-2.5 rounded-lg transition-colors text-xs"
+            style={{
+              flex: 1,
+              minWidth: "120px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "10px 16px",
+              borderRadius: "10px",
+              background: "rgba(255,255,255,0.12)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: "0.8125rem",
+              textDecoration: "none",
+              border: "1px solid rgba(255,255,255,0.2)",
+              backdropFilter: "blur(4px)",
+              transition: "background var(--duration-fast)",
+            }}
             title="Suicide & Crisis Lifeline"
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.12)";
+            }}
           >
-            <HeartPulse className="w-3.5 h-3.5" />
-            <span>Lifeline (988)</span>
+            <HeartPulse style={{ width: "16px", height: "16px" }} />
+            Crisis Lifeline (988)
           </a>
         </div>
       </div>

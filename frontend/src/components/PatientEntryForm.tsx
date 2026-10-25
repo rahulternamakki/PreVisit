@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Calendar, Stethoscope, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { User, Calendar, Stethoscope, ArrowRight, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer";
 
 interface PatientEntryFormProps {
@@ -45,46 +45,123 @@ export function PatientEntryForm({
     await onSubmit(trimmedName, parsedAge, chiefComplaint.trim() || undefined);
   };
 
+  const displayError = validationError || error;
+
   return (
-    <div className="w-full max-w-xl mx-auto space-y-6">
-      {/* Welcome Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-xl shadow-zinc-200/40 dark:shadow-none p-6 sm:p-8 space-y-6">
-        <div className="space-y-2 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-xs font-semibold mb-1">
-            <Stethoscope className="w-3.5 h-3.5" />
-            <span>Pre-Visit Clinical Intake</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Welcome to PreVisit
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Please enter your information to begin a brief conversation with our intake assistant.
-            Your answers help your doctor understand your symptoms before you walk into the exam room.
-          </p>
+    <div
+      className="w-full mx-auto animate-slide-up"
+      style={{ maxWidth: "480px" }}
+    >
+      {/* Hero heading above card */}
+      <div style={{ textAlign: "center", marginBottom: "28px" }}>
+        {/* Badge */}
+        <div
+          className="animate-fade-in"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "5px 12px",
+            borderRadius: "9999px",
+            background: "var(--pv-blue-50)",
+            border: "1px solid var(--pv-blue-200)",
+            color: "var(--pv-blue-700)",
+            fontSize: "0.6875rem",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            marginBottom: "14px",
+          }}
+        >
+          <Stethoscope style={{ width: "12px", height: "12px" }} />
+          Pre-Visit Clinical Intake
         </div>
 
-        {/* Medical Notice */}
+        <h1
+          style={{
+            fontSize: "clamp(1.625rem, 4vw, 2.125rem)",
+            fontWeight: 900,
+            letterSpacing: "-0.04em",
+            color: "var(--text-primary)",
+            lineHeight: 1.15,
+            margin: "0 0 10px",
+          }}
+        >
+          Welcome to PreVisit
+        </h1>
+        <p
+          style={{
+            fontSize: "0.9375rem",
+            color: "var(--text-tertiary)",
+            lineHeight: 1.6,
+            maxWidth: "360px",
+            margin: "0 auto",
+          }}
+        >
+          Answer a few questions so your doctor arrives prepared for your visit.
+        </p>
+      </div>
+
+      {/* Card */}
+      <div
+        className="pv-card-elevated"
+        style={{ padding: "28px 28px 24px" }}
+      >
+        {/* Disclaimer */}
         <MedicalDisclaimer />
 
-        {/* Display Errors */}
-        {(validationError || error) && (
-          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl text-red-700 dark:text-red-300 text-xs font-medium">
-            {validationError || error}
+        {/* Error */}
+        {displayError && (
+          <div
+            className="animate-fade-in animate-shake"
+            style={{
+              marginTop: "14px",
+              padding: "10px 14px",
+              borderRadius: "var(--radius-md)",
+              background: "var(--pv-danger-bg)",
+              border: "1px solid var(--pv-danger-border)",
+              color: "#b91c1c",
+              fontSize: "0.8125rem",
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span style={{ fontSize: "0.875rem" }}>⚠</span>
+            {displayError}
           </div>
         )}
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Name */}
+          <div>
             <label
               htmlFor="patient_name"
-              className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+              style={{
+                display: "block",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                marginBottom: "6px",
+              }}
             >
-              Patient Full Name <span className="text-red-500">*</span>
+              Patient Full Name <span style={{ color: "var(--pv-danger)" }}>*</span>
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <User className="w-4 h-4" />
+            <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: "13px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-quaternary)",
+                  pointerEvents: "none",
+                  display: "flex",
+                }}
+              >
+                <User style={{ width: "16px", height: "16px" }} />
               </div>
               <input
                 id="patient_name"
@@ -93,22 +170,41 @@ export function PatientEntryForm({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Eleanor Vance"
-                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                className="pv-input"
+                style={{ paddingLeft: "40px" }}
                 disabled={isLoading}
+                autoComplete="name"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          {/* Age */}
+          <div>
             <label
               htmlFor="patient_age"
-              className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+              style={{
+                display: "block",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                marginBottom: "6px",
+              }}
             >
-              Age (Years) <span className="text-red-500">*</span>
+              Age <span style={{ color: "var(--pv-danger)" }}>*</span>
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <Calendar className="w-4 h-4" />
+            <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: "13px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-quaternary)",
+                  pointerEvents: "none",
+                  display: "flex",
+                }}
+              >
+                <Calendar style={{ width: "16px", height: "16px" }} />
               </div>
               <input
                 id="patient_age"
@@ -119,19 +215,27 @@ export function PatientEntryForm({
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 placeholder="e.g. 34"
-                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                className="pv-input"
+                style={{ paddingLeft: "40px" }}
                 disabled={isLoading}
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          {/* Chief Complaint */}
+          <div>
             <label
               htmlFor="chief_complaint"
-              className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+              style={{
+                display: "block",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                marginBottom: "6px",
+              }}
             >
-              Main Reason for Today&apos;s Visit{" "}
-              <span className="text-zinc-400 font-normal">(optional)</span>
+              Reason for Today&apos;s Visit{" "}
+              <span style={{ fontWeight: 400, color: "var(--text-quaternary)" }}>(optional)</span>
             </label>
             <input
               id="chief_complaint"
@@ -139,49 +243,80 @@ export function PatientEntryForm({
               value={chiefComplaint}
               onChange={(e) => setChiefComplaint(e.target.value)}
               placeholder="e.g. Sore throat and fever for 2 days"
-              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="pv-input"
               disabled={isLoading}
             />
           </div>
 
-          {/* Consent Checkbox */}
-          <div className="pt-2">
-            <label className="flex items-start gap-2.5 cursor-pointer text-xs text-zinc-600 dark:text-zinc-400 select-none">
-              <input
-                type="checkbox"
-                checked={acknowledged}
-                onChange={(e) => setAcknowledged(e.target.checked)}
-                className="mt-0.5 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-              />
-              <span>
-                I understand this assistant collects information for my doctor and does not
-                provide medical diagnosis, medical advice, or replace emergency clinical care.
-              </span>
-            </label>
-          </div>
+          {/* Consent */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "10px",
+              cursor: "pointer",
+              padding: "12px 14px",
+              borderRadius: "var(--radius-md)",
+              background: "var(--bg-subtle)",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+              style={{
+                marginTop: "1px",
+                width: "16px",
+                height: "16px",
+                accentColor: "var(--pv-blue-600)",
+                flexShrink: 0,
+                cursor: "pointer",
+              }}
+            />
+            <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", lineHeight: 1.55 }}>
+              I understand this assistant collects information for my doctor and does not provide
+              medical diagnosis, advice, or replace emergency care.
+            </span>
+          </label>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-4 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="pv-btn-primary"
+            style={{ width: "100%", padding: "13px", fontSize: "0.9375rem", marginTop: "4px" }}
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 style={{ width: "18px", height: "18px", animation: "spin 1s linear infinite" }} />
                 <span>Initializing Intake...</span>
               </>
             ) : (
               <>
                 <span>Begin Intake Chat</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight style={{ width: "18px", height: "18px" }} />
               </>
             )}
           </button>
         </form>
 
-        <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Encrypted with Row-Level Security in Supabase</span>
+        {/* Security footer */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+            marginTop: "18px",
+            paddingTop: "16px",
+            borderTop: "1px solid var(--border-subtle)",
+            fontSize: "0.6875rem",
+            color: "var(--text-quaternary)",
+          }}
+        >
+          <ShieldCheck style={{ width: "13px", height: "13px", color: "var(--pv-success)" }} />
+          <span>Encrypted with Row-Level Security · Supabase</span>
         </div>
       </div>
     </div>

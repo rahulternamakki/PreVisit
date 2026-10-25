@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Activity, ShieldCheck, PlusCircle, Stethoscope, ArrowLeft } from "lucide-react";
+import { Activity, ShieldCheck, PlusCircle, Stethoscope, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { IntakeSession } from "@/types/intake";
 
 interface HeaderProps {
@@ -23,99 +23,208 @@ export function Header({
   const isDoctor = mode === "doctor";
 
   return (
-    <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 transition-colors print:hidden">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+    <header
+      className="sticky top-0 z-40 print:hidden"
+      style={{
+        background: "var(--bg-overlay)",
+        backdropFilter: "blur(16px) saturate(200%)",
+        WebkitBackdropFilter: "blur(16px) saturate(200%)",
+        borderBottom: "1px solid var(--border-subtle)",
+        boxShadow: "0 1px 0 var(--border-subtle)",
+      }}
+    >
+      <div
+        className="max-w-6xl mx-auto px-4 sm:px-6"
+        style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}
+      >
         {/* Brand */}
-        <Link href={isDoctor ? "/doctor" : "/"} className="flex items-center gap-3 group">
+        <Link
+          href={isDoctor ? "/doctor" : "/"}
+          className="flex items-center gap-3 group"
+          style={{ textDecoration: "none" }}
+        >
+          {/* Logo mark */}
           <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-105 ${
-              isDoctor
-                ? "bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-indigo-500/20"
-                : "bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-blue-500/20"
-            }`}
+            className="flex items-center justify-center shrink-0"
+            style={{
+              width: "38px",
+              height: "38px",
+              borderRadius: "10px",
+              background: isDoctor
+                ? "linear-gradient(135deg, #4f46e5, #7c3aed)"
+                : "linear-gradient(135deg, #2563eb, #4f46e5)",
+              boxShadow: isDoctor ? "var(--shadow-indigo)" : "var(--shadow-blue)",
+              transition: "transform var(--duration-normal) var(--ease-spring)",
+              color: "#fff",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06) rotate(-2deg)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1) rotate(0)")}
           >
             {isDoctor ? (
-              <Stethoscope className="w-5 h-5" />
+              <Stethoscope style={{ width: "18px", height: "18px" }} />
             ) : (
-              <Activity className="w-5 h-5 animate-pulse" />
+              <Activity style={{ width: "18px", height: "18px" }} />
             )}
           </div>
+
+          {/* Brand text */}
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-lg tracking-tight text-zinc-900 dark:text-zinc-50">
+              <span
+                style={{
+                  fontSize: "1.0625rem",
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  color: "var(--text-primary)",
+                  lineHeight: 1,
+                }}
+              >
                 PreVisit
               </span>
               <span
-                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
-                  isDoctor
-                    ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
-                    : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900"
-                }`}
+                style={{
+                  fontSize: "0.625rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: "2px 7px",
+                  borderRadius: "9999px",
+                  border: `1px solid ${isDoctor ? "var(--pv-indigo-200, #c7d2fe)" : "var(--pv-blue-200)"}`,
+                  background: isDoctor ? "var(--pv-indigo-50)" : "var(--pv-blue-50)",
+                  color: isDoctor ? "var(--pv-indigo-700)" : "var(--pv-blue-700)",
+                  lineHeight: 1.4,
+                }}
               >
-                {isDoctor ? "Doctor Portal" : "Patient Intake"}
+                {isDoctor ? "Doctor" : "Patient"}
               </span>
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:block">
+            <p
+              className="hidden sm:block"
+              style={{
+                fontSize: "0.6875rem",
+                color: "var(--text-quaternary)",
+                marginTop: "2px",
+                lineHeight: 1,
+              }}
+            >
               {isDoctor
-                ? "Clinical Queue & Structured Pre-Visit Summaries"
-                : "Intelligent Pre-Appointment Clinical Preparation"}
+                ? "Clinical Queue & Pre-Visit Summaries"
+                : "Intelligent Pre-Appointment Intake"}
             </p>
           </div>
         </Link>
 
-        {/* Right Info / Actions */}
-        <div className="flex items-center gap-3">
-          {/* Active Intake Badge in Patient Mode */}
+        {/* Right side */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Patient active session badge */}
           {!isDoctor && intake && (
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                  {intake.patient_name} ({intake.patient_age} yrs)
-                </span>
-                <span className="text-[11px] text-zinc-500 capitalize">
-                  {intake.status.replace("_", " ")}
-                </span>
+            <div className="hidden sm:flex items-center gap-3">
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
+                  {intake.patient_name}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)", marginTop: "1px" }}>
+                  {intake.patient_age} yrs · {intake.status.replace("_", " ")}
+                </div>
               </div>
               {onNewIntake && (
                 <button
                   onClick={onNewIntake}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
+                  className="pv-btn-secondary"
+                  style={{ padding: "6px 12px", fontSize: "0.8125rem", gap: "6px" }}
                   title="Start a fresh intake session"
                 >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">New Intake</span>
+                  <PlusCircle style={{ width: "14px", height: "14px" }} />
+                  <span>New</span>
                 </button>
               )}
             </div>
           )}
 
-          {/* Connection Status Indicator */}
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+          {/* Mobile new intake */}
+          {!isDoctor && intake && onNewIntake && (
+            <button
+              onClick={onNewIntake}
+              className="sm:hidden pv-btn-secondary"
+              style={{ padding: "7px", borderRadius: "10px" }}
+              title="New Intake"
+            >
+              <PlusCircle style={{ width: "16px", height: "16px" }} />
+            </button>
+          )}
+
+          {/* Connection pill */}
+          <div
+            className="hidden md:flex items-center gap-1.5"
+            style={{
+              padding: "5px 10px",
+              borderRadius: "9999px",
+              background: "var(--bg-subtle)",
+              border: "1px solid var(--border-subtle)",
+              fontSize: "0.6875rem",
+              color: "var(--text-quaternary)",
+              gap: "6px",
+            }}
+          >
             <span
-              className={`w-2 h-2 rounded-full ${
-                isBackendConnected ? "bg-emerald-500" : "bg-amber-500 animate-ping"
-              }`}
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: isBackendConnected ? "var(--pv-success)" : "var(--pv-warning)",
+                boxShadow: isBackendConnected
+                  ? "0 0 0 2px rgba(16,185,129,0.2)"
+                  : "0 0 0 2px rgba(245,158,11,0.2)",
+                flexShrink: 0,
+              }}
             />
-            <span className="hidden lg:inline">
-              {isBackendConnected ? "Secure API Connected" : "Connecting..."}
-            </span>
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 ml-0.5" />
+            {isBackendConnected ? (
+              <>
+                <ShieldCheck style={{ width: "12px", height: "12px", color: "var(--pv-success)" }} />
+                <span className="hidden lg:inline">Secure</span>
+              </>
+            ) : (
+              <>
+                <WifiOff style={{ width: "12px", height: "12px", color: "var(--pv-warning)" }} />
+                <span className="hidden lg:inline">Reconnecting</span>
+              </>
+            )}
           </div>
 
-          {/* Cross Portal Navigation Button */}
+          {/* Nav actions */}
           {isDoctor ? (
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
+                className="pv-btn-secondary"
+                style={{ padding: "7px 12px", fontSize: "0.8125rem", gap: "6px", textDecoration: "none" }}
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Patient View</span>
+                <ArrowLeft style={{ width: "14px", height: "14px" }} />
+                <span className="hidden sm:inline">Patient View</span>
               </Link>
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/60 text-xs font-semibold transition-colors"
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: "10px",
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                    color: "var(--pv-danger)",
+                    background: "var(--pv-danger-bg)",
+                    border: "1px solid var(--pv-danger-border)",
+                    cursor: "pointer",
+                    transition: "all var(--duration-normal) var(--ease-out)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#fee2e2";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--pv-danger-bg)";
+                  }}
                 >
                   Log Out
                 </button>
@@ -124,10 +233,32 @@ export function Header({
           ) : (
             <Link
               href="/doctor"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-colors shadow-sm"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "7px 14px",
+                borderRadius: "10px",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--pv-indigo-700)",
+                background: "var(--pv-indigo-50)",
+                border: "1px solid var(--pv-indigo-100, #e0e7ff)",
+                textDecoration: "none",
+                transition: "all var(--duration-normal) var(--ease-out)",
+                boxShadow: "0 1px 2px rgba(79,70,229,0.08)",
+              }}
               title="Access physician queue and review summaries"
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.background = "var(--pv-indigo-100)";
+                (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.background = "var(--pv-indigo-50)";
+                (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+              }}
             >
-              <Stethoscope className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <Stethoscope style={{ width: "14px", height: "14px" }} />
               <span>Doctor Portal</span>
             </Link>
           )}

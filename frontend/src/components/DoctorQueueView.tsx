@@ -12,6 +12,7 @@ import {
   Users,
   Inbox,
   Activity,
+  Filter,
 } from "lucide-react";
 import { DoctorQueueItem, DoctorQueueStats } from "@/types/doctor";
 
@@ -31,6 +32,63 @@ interface DoctorQueueViewProps {
   onSearchChange: (query: string) => void;
 }
 
+function UrgencyBadge({ level }: { level: string }) {
+  const configs: Record<string, { bg: string; color: string; border: string; dot?: string }> = {
+    emergency: {
+      bg: "rgba(239,68,68,0.1)",
+      color: "#dc2626",
+      border: "rgba(239,68,68,0.3)",
+      dot: "#ef4444",
+    },
+    urgent: {
+      bg: "rgba(245,158,11,0.1)",
+      color: "#d97706",
+      border: "rgba(245,158,11,0.3)",
+    },
+    routine: {
+      bg: "rgba(16,185,129,0.1)",
+      color: "#059669",
+      border: "rgba(16,185,129,0.3)",
+    },
+  };
+
+  const cfg = configs[level] || configs.routine;
+  const label = level.charAt(0).toUpperCase() + level.slice(1);
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        padding: "3px 9px",
+        borderRadius: "9999px",
+        background: cfg.bg,
+        color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+        fontSize: "0.6875rem",
+        fontWeight: 800,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+      }}
+    >
+      {cfg.dot && (
+        <span
+          style={{
+            width: "5px",
+            height: "5px",
+            borderRadius: "50%",
+            background: cfg.dot,
+            animation: "pulse 1.5s ease-in-out infinite",
+            flexShrink: 0,
+          }}
+        />
+      )}
+      {label}
+    </span>
+  );
+}
+
 export function DoctorQueueView({
   items,
   stats,
@@ -46,7 +104,6 @@ export function DoctorQueueView({
   searchQuery,
   onSearchChange,
 }: DoctorQueueViewProps) {
-  // Helper for relative time
   const getRelativeTime = (isoString?: string) => {
     if (!isoString) return "Recently";
     try {
@@ -57,7 +114,6 @@ export function DoctorQueueView({
       const diffMins = Math.floor(diffSecs / 60);
       const diffHours = Math.floor(diffMins / 60);
       const diffDays = Math.floor(diffHours / 24);
-
       if (diffDays > 0) return `${diffDays}d ago`;
       if (diffHours > 0) return `${diffHours}h ago`;
       if (diffMins > 0) return `${diffMins}m ago`;
@@ -67,204 +123,365 @@ export function DoctorQueueView({
     }
   };
 
+  const statCards = [
+    {
+      label: "Queue Total",
+      value: stats.total,
+      icon: <Users style={{ width: "15px", height: "15px" }} />,
+      sub: "Active patients",
+      color: "var(--text-tertiary)",
+      bg: "var(--bg-subtle)",
+      border: "var(--border-default)",
+      onClick: undefined,
+      active: false,
+    },
+    {
+      label: "Priority",
+      value: stats.urgent + stats.emergency,
+      icon: <ShieldAlert style={{ width: "15px", height: "15px" }} />,
+      sub: "Needs attention",
+      color: "var(--pv-danger)",
+      bg: "rgba(239,68,68,0.06)",
+      border: selectedUrgency === "urgent" ? "var(--pv-danger)" : "var(--pv-danger-border)",
+      onClick: () => onSelectUrgency(selectedUrgency === "urgent" ? "all" : "urgent"),
+      active: selectedUrgency === "urgent" || selectedUrgency === "emergency",
+    },
+    {
+      label: "Routine",
+      value: stats.routine,
+      icon: <Activity style={{ width: "15px", height: "15px" }} />,
+      sub: "Standard consult",
+      color: "var(--pv-success)",
+      bg: "rgba(16,185,129,0.06)",
+      border: selectedUrgency === "routine" ? "var(--pv-success)" : "var(--pv-success-border)",
+      onClick: () => onSelectUrgency(selectedUrgency === "routine" ? "all" : "routine"),
+      active: selectedUrgency === "routine",
+    },
+    {
+      label: "Reviewed",
+      value: stats.reviewed,
+      icon: <CheckCircle2 style={{ width: "15px", height: "15px" }} />,
+      sub: "Physician signed off",
+      color: "var(--pv-indigo-600)",
+      bg: "var(--pv-indigo-50)",
+      border: selectedStatus === "reviewed" ? "var(--pv-indigo-600)" : "var(--pv-indigo-100, #e0e7ff)",
+      onClick: () => onSelectStatus(selectedStatus === "reviewed" ? "all" : "reviewed"),
+      active: selectedStatus === "reviewed",
+    },
+  ];
+
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6 text-left">
-      {/* 1. Triage Metrics & Quick Actions Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        {/* Total Queue */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wider">Queue Total</span>
-            <Users className="w-4 h-4 text-zinc-400" />
+    <div
+      className="w-full stagger-children animate-fade-in"
+      style={{ maxWidth: "1024px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "20px" }}
+    >
+      {/* Stat cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: "12px",
+        }}
+        className="sm:grid-cols-4"
+      >
+        {statCards.map((card, i) => (
+          <div
+            key={i}
+            onClick={card.onClick}
+            role={card.onClick ? "button" : undefined}
+            tabIndex={card.onClick ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (card.onClick && (e.key === "Enter" || e.key === " ")) card.onClick();
+            }}
+            style={{
+              background: card.bg,
+              border: `1px solid ${card.border}`,
+              borderRadius: "var(--radius-xl)",
+              padding: "16px 18px",
+              cursor: card.onClick ? "pointer" : "default",
+              transition: "all var(--duration-normal) var(--ease-out)",
+              boxShadow: card.active ? `0 0 0 2px ${card.color}20` : "var(--shadow-xs)",
+              userSelect: "none",
+            }}
+            onMouseEnter={(e) => {
+              if (card.onClick) {
+                (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-md)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (card.onClick) {
+                (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = card.active ? `0 0 0 2px ${card.color}20` : "var(--shadow-xs)";
+              }
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "8px",
+                color: card.color,
+              }}
+            >
+              <span style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                {card.label}
+              </span>
+              {card.icon}
+            </div>
+            <div
+              style={{
+                fontSize: "1.75rem",
+                fontWeight: 900,
+                color: card.color,
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+                marginBottom: "4px",
+              }}
+            >
+              {card.value}
+            </div>
+            <p style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)", fontWeight: 500 }}>
+              {card.sub}
+            </p>
           </div>
-          <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50">
-            {stats.total}
-          </div>
-          <p className="text-[11px] text-zinc-400 mt-0.5">Active patients in system</p>
-        </div>
-
-        {/* Priority / Urgent */}
-        <div
-          onClick={() => onSelectUrgency(selectedUrgency === "urgent" ? "all" : "urgent")}
-          className={`cursor-pointer transition-all bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm hover:border-red-400 ${
-            selectedUrgency === "urgent" || selectedUrgency === "emergency"
-              ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/20 dark:bg-red-950/20"
-              : "border-zinc-200/80 dark:border-zinc-800"
-          }`}
-        >
-          <div className="flex items-center justify-between text-red-600 dark:text-red-400 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              Priority Urgent
-            </span>
-            <ShieldAlert className="w-4 h-4" />
-          </div>
-          <div className="text-2xl font-black text-red-600 dark:text-red-400">
-            {stats.urgent + stats.emergency}
-          </div>
-          <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-0.5">
-            Needs immediate attention
-          </p>
-        </div>
-
-        {/* Routine */}
-        <div
-          onClick={() => onSelectUrgency(selectedUrgency === "routine" ? "all" : "routine")}
-          className={`cursor-pointer transition-all bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm hover:border-emerald-400 ${
-            selectedUrgency === "routine"
-              ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/20"
-              : "border-zinc-200/80 dark:border-zinc-800"
-          }`}
-        >
-          <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider">Routine</span>
-            <Activity className="w-4 h-4" />
-          </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {stats.routine}
-          </div>
-          <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
-            Standard pre-consult cases
-          </p>
-        </div>
-
-        {/* Reviewed */}
-        <div
-          onClick={() => onSelectStatus(selectedStatus === "reviewed" ? "all" : "reviewed")}
-          className={`cursor-pointer transition-all bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm hover:border-indigo-400 ${
-            selectedStatus === "reviewed"
-              ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20 dark:bg-indigo-950/20"
-              : "border-zinc-200/80 dark:border-zinc-800"
-          }`}
-        >
-          <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider">Reviewed</span>
-            <CheckCircle2 className="w-4 h-4" />
-          </div>
-          <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-            {stats.reviewed}
-          </div>
-          <p className="text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-0.5">
-            Signed off by physician
-          </p>
-        </div>
+        ))}
       </div>
 
-      {/* 2. Controls: Search, Filters & Action Buttons */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-3.5 rounded-2xl shadow-sm">
+      {/* Controls bar */}
+      <div
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-default)",
+          borderRadius: "var(--radius-xl)",
+          padding: "12px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          boxShadow: "var(--shadow-xs)",
+        }}
+        className="md:flex-row md:items-center"
+      >
         {/* Search */}
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+        <div style={{ position: "relative", flex: 1 }}>
+          <Search
+            style={{
+              width: "15px",
+              height: "15px",
+              position: "absolute",
+              left: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--text-quaternary)",
+              pointerEvents: "none",
+            }}
+          />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search queue by patient name or chief complaint..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            placeholder="Search by patient name or complaint…"
+            className="pv-input"
+            style={{
+              paddingLeft: "36px",
+              fontSize: "0.875rem",
+              background: "var(--bg-subtle)",
+            }}
           />
         </div>
 
-        {/* Urgency Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <button
-            type="button"
-            onClick={() => onSelectUrgency("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
-              selectedUrgency === "all"
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"
-            }`}
-          >
-            All Urgencies
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectUrgency("urgent")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1 ${
-              selectedUrgency === "urgent"
-                ? "bg-red-600 text-white"
-                : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100"
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Urgent ({stats.urgent + stats.emergency})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectUrgency("routine")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
-              selectedUrgency === "routine"
-                ? "bg-emerald-600 text-white"
-                : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
-            }`}
-          >
-            Routine ({stats.routine})
-          </button>
+        {/* Filter tabs */}
+        <div
+          className="no-scrollbar"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            overflowX: "auto",
+            paddingBottom: "2px",
+          }}
+        >
+          {[
+            { id: "all", label: "All" },
+            { id: "urgent", label: `Urgent (${stats.urgent + stats.emergency})`, danger: true },
+            { id: "routine", label: `Routine (${stats.routine})`, success: true },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onSelectUrgency(tab.id)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "8px",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+                transition: "all var(--duration-fast)",
+                border: "1px solid transparent",
+                ...(selectedUrgency === tab.id
+                  ? tab.danger
+                    ? { background: "var(--pv-danger)", color: "#fff", boxShadow: "0 2px 6px rgba(239,68,68,0.25)" }
+                    : tab.success
+                    ? { background: "var(--pv-success)", color: "#fff", boxShadow: "0 2px 6px rgba(16,185,129,0.25)" }
+                    : { background: "var(--text-primary)", color: "var(--bg-surface)" }
+                  : tab.danger
+                  ? { background: "var(--pv-danger-bg)", color: "var(--pv-danger)", borderColor: "var(--pv-danger-border)" }
+                  : tab.success
+                  ? { background: "var(--pv-success-bg)", color: "var(--pv-success)", borderColor: "var(--pv-success-border)" }
+                  : { background: "var(--bg-subtle)", color: "var(--text-tertiary)", borderColor: "var(--border-default)" }),
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+        {/* Actions */}
+        <div
+          style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}
+        >
           <button
             type="button"
             onClick={onSeedSamples}
             disabled={isSeeding}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-xs font-bold transition-colors disabled:opacity-60"
-            title="Seed 1 Urgent and 1 Routine intake for testing"
+            className="pv-btn-secondary"
+            style={{ padding: "7px 12px", fontSize: "0.8125rem", gap: "6px" }}
+            title="Seed demo clinical cases"
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-            <span>{isSeeding ? "Seeding..." : "Load Clinical Demos"}</span>
+            <Sparkles style={{ width: "14px", height: "14px", color: "var(--pv-indigo-500)" }} />
+            <span>{isSeeding ? "Loading…" : "Demo Cases"}</span>
           </button>
 
           <button
             type="button"
             onClick={onRefresh}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold transition-colors disabled:opacity-60"
-            title="Refresh patient queue"
+            className="pv-btn-secondary"
+            style={{ padding: "7px 10px", fontSize: "0.8125rem", minWidth: "36px" }}
+            title="Refresh queue"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw
+              style={{
+                width: "14px",
+                height: "14px",
+                animation: isLoading ? "spin 0.8s linear infinite" : "none",
+              }}
+            />
           </button>
         </div>
       </div>
 
-      {/* 3. Patient Queue List */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            Triage Queue ({items.length} Patients) • Sorted Urgent First
+      {/* Queue list */}
+      <div>
+        {/* List header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "10px",
+            padding: "0 2px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "0.6875rem",
+              fontWeight: 800,
+              letterSpacing: "0.07em",
+              textTransform: "uppercase",
+              color: "var(--text-quaternary)",
+            }}
+          >
+            {items.length} Patient{items.length !== 1 ? "s" : ""} · Urgent First
           </span>
-          <span className="text-[11px] text-zinc-400">
-            Click any patient to review structured summary & red flags
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)" }}>
+            Click any row to review
           </span>
         </div>
 
-        {items.length === 0 ? (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-12 text-center space-y-4">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 flex items-center justify-center">
-              <Inbox className="w-6 h-6" />
+        {/* Loading skeleton */}
+        {isLoading && items.length === 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="skeleton"
+                style={{ height: "90px", borderRadius: "var(--radius-xl)" }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && items.length === 0 && (
+          <div
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-2xl)",
+              padding: "56px 24px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "52px",
+                height: "52px",
+                borderRadius: "14px",
+                background: "var(--bg-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 14px",
+                color: "var(--text-quaternary)",
+              }}
+            >
+              <Inbox style={{ width: "24px", height: "24px" }} />
             </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                No patients found matching criteria
-              </h3>
-              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                No intakes currently match your search or filter. You can seed realistic clinical cases to test the triage queue.
-              </p>
-            </div>
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                marginBottom: "6px",
+              }}
+            >
+              No patients in queue
+            </h3>
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "var(--text-tertiary)",
+                maxWidth: "300px",
+                margin: "0 auto 20px",
+                lineHeight: 1.6,
+              }}
+            >
+              No intakes match your current filters. Try seeding demo clinical cases to test the triage queue.
+            </p>
             <button
               type="button"
               onClick={onSeedSamples}
               disabled={isSeeding}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all"
+              className="pv-btn-primary"
+              style={{
+                margin: "0 auto",
+                background: "linear-gradient(135deg, var(--pv-indigo-600), #7c3aed)",
+                boxShadow: "var(--shadow-indigo)",
+              }}
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Load Clinical Demo Cases</span>
+              <Sparkles style={{ width: "16px", height: "16px" }} />
+              {isSeeding ? "Loading Demo Cases…" : "Load Clinical Demo Cases"}
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {items.map((item) => {
+        )}
+
+        {/* Patient rows */}
+        {items.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {items.map((item, rowIdx) => {
               const isUrgent = item.urgency_level === "urgent";
               const isEmergency = item.urgency_level === "emergency";
               const isPriority = isUrgent || isEmergency;
@@ -273,82 +490,193 @@ export function DoctorQueueView({
               return (
                 <div
                   key={item.id}
+                  className="animate-fade-in"
                   onClick={() => onSelectIntake(item.id)}
-                  className={`group cursor-pointer rounded-2xl p-4 sm:p-5 transition-all bg-white dark:bg-zinc-900 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs hover:shadow-md ${
-                    isPriority
-                      ? "border-red-200 dark:border-red-950/60 hover:border-red-400 bg-red-50/10 dark:bg-red-950/10"
-                      : "border-zinc-200/80 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-zinc-700"
-                  }`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") onSelectIntake(item.id);
+                  }}
+                  style={{
+                    animationDelay: `${rowIdx * 40}ms`,
+                    background: "var(--bg-surface)",
+                    border: `1px solid ${isPriority ? "var(--pv-danger-border)" : "var(--border-default)"}`,
+                    borderRadius: "var(--radius-xl)",
+                    padding: "16px 20px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "16px",
+                    transition: "all var(--duration-normal) var(--ease-out)",
+                    boxShadow: isPriority
+                      ? "0 0 0 0 rgba(239,68,68,0.1)"
+                      : "var(--shadow-xs)",
+                    userSelect: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLDivElement;
+                    el.style.transform = "translateY(-1px)";
+                    el.style.boxShadow = isPriority
+                      ? "0 4px 16px rgba(239,68,68,0.12)"
+                      : "var(--shadow-md)";
+                    el.style.borderColor = isPriority
+                      ? "var(--pv-danger)"
+                      : "var(--pv-indigo-400)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLDivElement;
+                    el.style.transform = "translateY(0)";
+                    el.style.boxShadow = isPriority ? "0 0 0 0 rgba(239,68,68,0.1)" : "var(--shadow-xs)";
+                    el.style.borderColor = isPriority ? "var(--pv-danger-border)" : "var(--border-default)";
+                  }}
                 >
-                  {/* Left Column: Urgency Badge + Name + Chief Complaint */}
-                  <div className="space-y-2 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Urgency Badge */}
-                      <span
-                        className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                          isEmergency
-                            ? "bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800 animate-pulse"
-                            : isUrgent
-                            ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
-                            : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800"
-                        }`}
-                      >
-                        {item.urgency_level}
-                      </span>
+                  {/* Priority stripe */}
+                  <div
+                    style={{
+                      width: "3px",
+                      alignSelf: "stretch",
+                      borderRadius: "2px",
+                      flexShrink: 0,
+                      background: isEmergency
+                        ? "var(--pv-danger)"
+                        : isUrgent
+                        ? "var(--pv-warning)"
+                        : "var(--pv-success)",
+                    }}
+                  />
 
-                      {/* Red Flags Badge */}
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Badges row */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+                      <UrgencyBadge level={item.urgency_level} />
+
                       {item.red_flags_count > 0 && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 flex items-center gap-1">
-                          <ShieldAlert className="w-3 h-3" />
-                          <span>{item.red_flags_count} Red Flags</span>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "3px 8px",
+                            borderRadius: "9999px",
+                            background: "var(--pv-danger-bg)",
+                            border: "1px solid var(--pv-danger-border)",
+                            color: "var(--pv-danger)",
+                            fontSize: "0.6875rem",
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          <ShieldAlert style={{ width: "10px", height: "10px" }} />
+                          {item.red_flags_count} Red Flag{item.red_flags_count > 1 ? "s" : ""}
                         </span>
                       )}
 
-                      {/* Status */}
                       <span
-                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          isReviewed
-                            ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
-                        }`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "3px 8px",
+                          borderRadius: "9999px",
+                          background: isReviewed ? "var(--pv-indigo-50)" : "var(--bg-subtle)",
+                          border: `1px solid ${isReviewed ? "var(--pv-indigo-100, #e0e7ff)" : "var(--border-default)"}`,
+                          color: isReviewed ? "var(--pv-indigo-600)" : "var(--text-quaternary)",
+                          fontSize: "0.6875rem",
+                          fontWeight: 600,
+                          letterSpacing: "0.04em",
+                          textTransform: "capitalize",
+                        }}
                       >
                         {item.status.replace("_", " ")}
                       </span>
                     </div>
 
-                    {/* Patient Name & Age */}
-                    <div className="flex items-baseline gap-2">
-                      <h4 className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    {/* Name */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "baseline",
+                        gap: "6px",
+                        marginBottom: "3px",
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 800,
+                          color: "var(--text-primary)",
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
                         {item.patient_name}
                       </h4>
-                      <span className="text-xs text-zinc-500 font-medium">
-                        ({item.patient_age} yrs)
+                      <span
+                        style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", fontWeight: 500 }}
+                      >
+                        {item.patient_age} yrs
                       </span>
                     </div>
 
-                    {/* Chief Complaint */}
-                    <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 font-medium line-clamp-2">
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                    {/* Complaint */}
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.5,
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical" as const,
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "var(--text-tertiary)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                         Complaint:{" "}
                       </span>
                       {item.chief_complaint || "Routine preliminary clinical consultation"}
                     </p>
                   </div>
 
-                  {/* Right Column: Time & Review CTA */}
-                  <div className="flex items-center sm:flex-col items-end justify-between sm:justify-center w-full sm:w-auto gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-zinc-800">
-                    <div className="flex items-center gap-1 text-[11px] text-zinc-400">
-                      <Clock className="w-3 h-3" />
-                      <span>{getRelativeTime(item.created_at)}</span>
+                  {/* Right side */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: "8px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        fontSize: "0.75rem",
+                        color: "var(--text-quaternary)",
+                      }}
+                    >
+                      <Clock style={{ width: "11px", height: "11px" }} />
+                      {getRelativeTime(item.created_at)}
                     </div>
 
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 group-hover:bg-indigo-600 group-hover:text-white text-zinc-700 dark:text-zinc-300 text-xs font-bold transition-all"
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        background: "var(--bg-subtle)",
+                        border: "1px solid var(--border-default)",
+                        fontSize: "0.8125rem",
+                        fontWeight: 600,
+                        color: "var(--text-secondary)",
+                        transition: "all var(--duration-fast)",
+                      }}
                     >
-                      <span>Review</span>
-                      <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </button>
+                      Review
+                      <ChevronRight style={{ width: "13px", height: "13px" }} />
+                    </div>
                   </div>
                 </div>
               );

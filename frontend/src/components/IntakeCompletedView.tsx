@@ -17,6 +17,8 @@ import {
   Stethoscope,
   Loader2,
   ShieldAlert,
+  User,
+  Bot,
 } from "lucide-react";
 import { IntakeSession } from "@/types/intake";
 import { generateSummary } from "@/lib/api";
@@ -43,6 +45,10 @@ export function IntakeCompletedView({
   const summary = intake.summary;
   const redFlags = intake.red_flags || summary?.red_flags || [];
 
+  const urgencyColor = isEmergency ? "var(--pv-danger)" : isUrgent ? "var(--pv-warning)" : "var(--pv-blue-600)";
+  const urgencyBg    = isEmergency ? "var(--pv-danger-bg)" : isUrgent ? "var(--pv-warning-bg)" : "var(--pv-info-bg)";
+  const urgencyBorder = isEmergency ? "var(--pv-danger-border)" : isUrgent ? "var(--pv-warning-border)" : "var(--pv-info-border)";
+
   const handleManualGenerateSummary = async () => {
     setIsGeneratingSummary(true);
     setSummaryError(null);
@@ -59,111 +65,206 @@ export function IntakeCompletedView({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6 print:max-w-none print:m-0 print:p-0">
-      {/* Acute Emergency Banner */}
+    <div
+      className="w-full mx-auto animate-slide-up print:max-w-none print:m-0 print:p-0"
+      style={{ maxWidth: "720px", display: "flex", flexDirection: "column", gap: "16px" }}
+    >
+      {/* Emergency banner */}
       {isEmergency && (
         <div className="print:hidden">
           <EmergencyBanner redFlags={redFlags} />
         </div>
       )}
 
-      {/* Main Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-xl shadow-zinc-200/40 dark:shadow-none p-6 sm:p-8 space-y-6 text-left transition-colors print:shadow-none print:border-none print:p-0">
-        
-        {/* Header and Status */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm border border-emerald-200 dark:border-emerald-800">
-              <CheckCircle2 className="w-7 h-7" />
+      {/* Main card */}
+      <div
+        className="pv-card-elevated print:shadow-none print:border-none print:p-0"
+        style={{ padding: "28px", display: "flex", flexDirection: "column", gap: "20px" }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            paddingBottom: "20px",
+            borderBottom: "1px solid var(--border-subtle)",
+          }}
+          className="sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "14px",
+                background: "var(--pv-success-bg)",
+                border: "1px solid var(--pv-success-border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                color: "var(--pv-success)",
+                boxShadow: "0 0 0 4px rgba(16,185,129,0.08)",
+              }}
+            >
+              <CheckCircle2 style={{ width: "26px", height: "26px" }} />
             </div>
             <div>
-              <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 mb-1">
-                Intake Completed & Processed
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "3px 9px",
+                  borderRadius: "9999px",
+                  background: "var(--pv-success-bg)",
+                  border: "1px solid var(--pv-success-border)",
+                  color: "var(--pv-success)",
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  marginBottom: "5px",
+                }}
+              >
+                ✓ Intake Complete
               </span>
-              <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
-                Pre-Visit Intake: {intake.patient_name}
+              <h2
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 900,
+                  letterSpacing: "-0.03em",
+                  color: "var(--text-primary)",
+                  margin: 0,
+                  lineHeight: 1.2,
+                }}
+              >
+                {intake.patient_name}
               </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Patient Age: {intake.patient_age} years | Session ID: {intake.id.slice(0, 8)}...
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", marginTop: "2px" }}>
+                {intake.patient_age} yrs · Session {intake.id.slice(0, 8)}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 print:hidden self-end sm:self-center">
+          <div className="print:hidden" style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
             <button
               onClick={handlePrint}
               type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-semibold transition-colors"
+              className="pv-btn-secondary"
+              style={{ gap: "6px", fontSize: "0.8125rem" }}
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print Summary</span>
+              <Printer style={{ width: "14px", height: "14px" }} />
+              Print
             </button>
           </div>
         </div>
 
-        {/* Triage / Urgency Status Banner */}
+        {/* Urgency banner */}
         <div
-          className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
-            isEmergency
-              ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-900 dark:text-red-200"
-              : isUrgent
-              ? "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200"
-              : "bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900 text-blue-900 dark:text-blue-200"
-          }`}
+          style={{
+            padding: "12px 16px",
+            borderRadius: "var(--radius-lg)",
+            background: urgencyBg,
+            border: `1px solid ${urgencyBorder}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+          }}
         >
-          <div className="flex items-center gap-2 font-medium">
-            {(isEmergency || isUrgent) ? (
-              <ShieldAlert className="w-4 h-4 shrink-0 text-current" />
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {isEmergency || isUrgent ? (
+              <ShieldAlert style={{ width: "15px", height: "15px", color: urgencyColor, flexShrink: 0 }} />
             ) : (
-              <Activity className="w-4 h-4 shrink-0 text-current" />
+              <Activity style={{ width: "15px", height: "15px", color: urgencyColor, flexShrink: 0 }} />
             )}
-            <span>
-              Clinical Triage Urgency:{" "}
-              <strong className="capitalize underline underline-offset-2">
-                {intake.urgency_level} Priority
-              </strong>
+            <span style={{ fontSize: "0.875rem", fontWeight: 600, color: urgencyColor }}>
+              Triage:{" "}
+              <strong style={{ textTransform: "capitalize" }}>{intake.urgency_level} Priority</strong>
             </span>
           </div>
-          <span className="text-[11px] font-mono opacity-80">
-            Validated by Clinical Schema (Phase 3)
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)", fontFamily: "var(--font-mono), monospace" }}>
+            Clinically Validated
           </span>
         </div>
 
-        {/* RED FLAGS ALERT PANEL (High Priority) */}
+        {/* Red flags */}
         {redFlags && redFlags.length > 0 && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-red-50/80 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-900/80 space-y-3">
-            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-xs uppercase tracking-wider">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
-              <span>Clinical Red Flags Requiring Immediate / Prompt Doctor Attention:</span>
+          <div
+            style={{
+              background: "var(--pv-danger-bg)",
+              border: "2px solid var(--pv-danger-border)",
+              borderRadius: "var(--radius-xl)",
+              padding: "16px 18px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "7px", color: "var(--pv-danger)" }}>
+              <AlertTriangle style={{ width: "15px", height: "15px" }} />
+              <span style={{ fontSize: "0.8125rem", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                Clinical Red Flags — Prompt Physician Attention
+              </span>
             </div>
-            <div className="space-y-2.5">
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {redFlags.map((flag, idx) => (
                 <div
                   key={idx}
-                  className="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-red-200 dark:border-red-900 text-xs space-y-1.5 shadow-sm"
+                  style={{
+                    background: "var(--bg-surface)",
+                    border: "1px solid var(--pv-danger-border)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: "11px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "7px",
+                  }}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "0.8125rem",
+                        fontWeight: 700,
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--pv-danger)", flexShrink: 0 }} />
                       {flag.reason}
                     </span>
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        flag.severity === "emergency"
-                          ? "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300"
-                          : "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300"
-                      }`}
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: "9999px",
+                        fontSize: "0.625rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase",
+                        background: flag.severity === "emergency" ? "var(--pv-danger)" : "var(--pv-warning-bg)",
+                        color: flag.severity === "emergency" ? "#fff" : "var(--pv-warning)",
+                        border: flag.severity === "emergency" ? "none" : "1px solid var(--pv-warning-border)",
+                        flexShrink: 0,
+                      }}
                     >
                       {flag.severity}
                     </span>
                   </div>
-                  <div className="pl-3 border-l-2 border-red-400 dark:border-red-600 text-zinc-600 dark:text-zinc-300 italic font-serif">
-                    Patient Quote: &ldquo;{flag.patient_quote}&rdquo;
+                  <div
+                    style={{
+                      borderLeft: "2px solid var(--pv-danger-border)",
+                      paddingLeft: "12px",
+                      fontSize: "0.8125rem",
+                      color: "var(--text-secondary)",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    &ldquo;{flag.patient_quote}&rdquo;
                   </div>
                 </div>
               ))}
@@ -171,216 +272,352 @@ export function IntakeCompletedView({
           </div>
         )}
 
-        {/* STRUCTURED CLINICAL SUMMARY SECTION */}
+        {/* Clinical summary */}
         {summary ? (
-          <div className="space-y-5">
-            <div className="flex items-center gap-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
-              <Stethoscope className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {/* Section heading */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                paddingBottom: "10px",
+                borderBottom: "1px solid var(--border-subtle)",
+              }}
+            >
+              <Stethoscope style={{ width: "15px", height: "15px", color: "var(--pv-blue-600)" }} />
+              <h3
+                style={{
+                  fontSize: "0.6875rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  color: "var(--text-quaternary)",
+                  margin: 0,
+                }}
+              >
                 Structured Clinical Summary
               </h3>
             </div>
 
-            {/* Chief Complaint */}
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-700/60 space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                Chief Complaint:
+            {/* Chief complaint */}
+            <div
+              style={{
+                padding: "14px 16px",
+                background: "var(--bg-subtle)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-lg)",
+              }}
+            >
+              <span style={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-quaternary)", display: "block", marginBottom: "5px" }}>
+                Chief Complaint
               </span>
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {summary.chief_complaint || intake.chief_complaint || "Unspecified symptom"}
+              <p style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+                {summary.chief_complaint || intake.chief_complaint || "Unspecified"}
               </p>
             </div>
 
-            {/* History of Present Illness (HPI) */}
+            {/* HPI */}
             {summary.history_of_present_illness && (
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-700/60 space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                  History of Present Illness (HPI):
+              <div
+                style={{
+                  padding: "14px 16px",
+                  background: "var(--bg-subtle)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-lg)",
+                }}
+              >
+                <span style={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-quaternary)", display: "block", marginBottom: "6px" }}>
+                  History of Present Illness (HPI)
                 </span>
-                <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.7, margin: 0, whiteSpace: "pre-wrap" }}>
                   {summary.history_of_present_illness}
                 </p>
               </div>
             )}
 
-            {/* Symptoms Tag Cloud */}
+            {/* Symptoms */}
             {summary.symptoms && summary.symptoms.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-                  Reported Symptoms:
+              <div>
+                <span style={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-quaternary)", display: "block", marginBottom: "8px" }}>
+                  Reported Symptoms
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {summary.symptoms.map((symptom, idx) => (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {summary.symptoms.map((s, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 text-xs font-medium"
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "8px",
+                        background: "rgba(37,99,235,0.07)",
+                        border: "1px solid rgba(37,99,235,0.15)",
+                        color: "var(--pv-blue-700)",
+                        fontSize: "0.875rem",
+                        fontWeight: 500,
+                      }}
                     >
-                      {symptom}
+                      {s}
                     </span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Clinical Domains 3-Column Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Medical History */}
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-700/60 space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-zinc-400" />
-                  Medical History
-                </span>
-                {summary.medical_history && summary.medical_history.length > 0 ? (
-                  <ul className="text-xs text-zinc-800 dark:text-zinc-200 space-y-1 list-disc list-inside">
-                    {summary.medical_history.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-zinc-500 italic">None reported</p>
-                )}
-              </div>
-
-              {/* Current Medications */}
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-700/60 space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                  <Pill className="w-3.5 h-3.5 text-zinc-400" />
-                  Medications
-                </span>
-                {summary.medications && summary.medications.length > 0 ? (
-                  <ul className="text-xs text-zinc-800 dark:text-zinc-200 space-y-1 list-disc list-inside">
-                    {summary.medications.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-zinc-500 italic">None reported</p>
-                )}
-              </div>
-
-              {/* Allergies */}
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-700/60 space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
-                  Allergies
-                </span>
-                {summary.allergies && summary.allergies.length > 0 ? (
-                  <ul className="text-xs text-zinc-800 dark:text-zinc-200 space-y-1 list-disc list-inside">
-                    {summary.allergies.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-zinc-500 italic">No allergies reported</p>
-                )}
-              </div>
+            {/* 3-col grid */}
+            <div
+              style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}
+              className="sm:grid-cols-3"
+            >
+              {[
+                {
+                  label: "Medical History",
+                  icon: <Activity style={{ width: "11px", height: "11px" }} />,
+                  items: summary.medical_history,
+                  empty: "None reported",
+                },
+                {
+                  label: "Medications",
+                  icon: <Pill style={{ width: "11px", height: "11px" }} />,
+                  items: summary.medications,
+                  empty: "None reported",
+                },
+                {
+                  label: "Allergies",
+                  icon: <ShieldCheck style={{ width: "11px", height: "11px" }} />,
+                  items: summary.allergies,
+                  empty: "No known allergies",
+                },
+              ].map((col) => (
+                <div
+                  key={col.label}
+                  style={{
+                    padding: "12px 14px",
+                    background: "var(--bg-subtle)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-lg)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "8px", color: "var(--text-quaternary)" }}>
+                    {col.icon}
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      {col.label}
+                    </span>
+                  </div>
+                  {col.items && col.items.length > 0 ? (
+                    <ul style={{ margin: 0, padding: "0 0 0 14px", fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                      {col.items.map((item, i) => <li key={i}>{item}</li>)}
+                    </ul>
+                  ) : (
+                    <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", fontStyle: "italic", margin: 0 }}>
+                      {col.empty}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
 
-            {/* Suggested Doctor Questions */}
+            {/* Suggested questions */}
             {summary.suggested_questions && summary.suggested_questions.length > 0 && (
-              <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/60 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  Suggested Physician Consultation Questions:
-                </span>
-                <ul className="space-y-1.5 text-xs text-zinc-800 dark:text-zinc-200">
+              <div
+                style={{
+                  padding: "14px 16px",
+                  background: "var(--pv-indigo-50)",
+                  border: "1px solid var(--pv-indigo-100, #e0e7ff)",
+                  borderRadius: "var(--radius-lg)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", color: "var(--pv-indigo-600)" }}>
+                  <HelpCircle style={{ width: "13px", height: "13px" }} />
+                  <span style={{ fontSize: "0.6875rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    Suggested Physician Questions
+                  </span>
+                </div>
+                <ol style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: "5px" }}>
                   {summary.suggested_questions.map((q, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="font-bold text-indigo-500">{idx + 1}.</span>
-                      <span>{q}</span>
+                    <li key={idx} style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.65 }}>
+                      {q}
                     </li>
                   ))}
-                </ul>
+                </ol>
               </div>
             )}
           </div>
         ) : (
-          /* Generate Summary CTA if not yet available */
-          <div className="p-6 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900 text-center space-y-3">
-            <Sparkles className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto" />
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              Structured Clinical Summary Ready to Generate
+          /* Generate summary CTA */
+          <div
+            style={{
+              padding: "32px 24px",
+              borderRadius: "var(--radius-xl)",
+              background: "var(--pv-info-bg)",
+              border: "1px solid var(--pv-info-border)",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "13px",
+                background: "rgba(37,99,235,0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--pv-blue-600)",
+                marginBottom: "4px",
+              }}
+            >
+              <Sparkles style={{ width: "22px", height: "22px" }} />
+            </div>
+            <h3 style={{ fontSize: "1.0625rem", fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
+              Generate Structured Clinical Summary
             </h3>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-md mx-auto">
-              Transform the patient transcript into a validated clinical summary, red flags, and doctor consultation questions.
+            <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)", maxWidth: "360px", lineHeight: 1.6, margin: 0 }}>
+              Transform the patient transcript into a validated clinical summary with red flags and consultation questions.
             </p>
             {summaryError && (
-              <p className="text-xs text-red-600 font-medium">{summaryError}</p>
+              <p style={{ fontSize: "0.8125rem", color: "var(--pv-danger)", fontWeight: 500 }}>{summaryError}</p>
             )}
             <button
               onClick={handleManualGenerateSummary}
               disabled={isGeneratingSummary}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs shadow-sm transition-all"
+              className="pv-btn-primary"
+              style={{ marginTop: "4px" }}
             >
               {isGeneratingSummary ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Validating Clinical Summary...</span>
+                  <Loader2 style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite" }} />
+                  Generating Summary...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Generate Structured Clinical Summary</span>
+                  <Sparkles style={{ width: "16px", height: "16px" }} />
+                  Generate Summary
                 </>
               )}
             </button>
           </div>
         )}
 
-        {/* Collapsible Transcript Review */}
-        <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden text-left print:hidden">
+        {/* Transcript toggle */}
+        <div
+          className="print:hidden"
+          style={{ border: "1px solid var(--border-default)", borderRadius: "var(--radius-xl)", overflow: "hidden" }}
+        >
           <button
             type="button"
             onClick={() => setShowTranscript(!showTranscript)}
-            className="w-full p-4 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-between text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors"
+            style={{
+              width: "100%",
+              padding: "13px 16px",
+              background: "var(--bg-subtle)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-secondary)",
+              transition: "background var(--duration-fast)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-muted)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-subtle)";
+            }}
           >
-            <span className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-500" />
-              <span>Review Complete Chat Transcript ({intake.chat_transcript.length} messages)</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "0.875rem", fontWeight: 600 }}>
+              <FileText style={{ width: "14px", height: "14px", color: "var(--pv-blue-500)" }} />
+              Chat Transcript ({intake.chat_transcript.length} messages)
             </span>
             {showTranscript ? (
-              <ChevronUp className="w-4 h-4 text-zinc-400" />
+              <ChevronUp style={{ width: "14px", height: "14px", color: "var(--text-quaternary)" }} />
             ) : (
-              <ChevronDown className="w-4 h-4 text-zinc-400" />
+              <ChevronDown style={{ width: "14px", height: "14px", color: "var(--text-quaternary)" }} />
             )}
           </button>
 
           {showTranscript && (
-            <div className="p-4 bg-white dark:bg-zinc-900 space-y-3 max-h-80 overflow-y-auto text-xs border-t border-zinc-200 dark:border-zinc-800">
+            <div
+              className="animate-fade-in"
+              style={{
+                padding: "16px",
+                background: "var(--bg-surface)",
+                borderTop: "1px solid var(--border-subtle)",
+                maxHeight: "300px",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
               {intake.chat_transcript.map((msg, i) => (
                 <div
                   key={i}
-                  className={`p-2.5 rounded-lg ${
-                    msg.role === "user"
-                      ? "bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 ml-4"
-                      : "bg-zinc-100/80 dark:bg-zinc-800/80 mr-4"
-                  }`}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: msg.role === "user" ? "flex-end" : "flex-start",
+                  }}
                 >
-                  <span className="font-bold text-[10px] uppercase text-zinc-500 block mb-1">
+                  <span style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)", fontWeight: 600, textTransform: "uppercase", marginBottom: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    {msg.role === "user" ? <User style={{ width: "10px", height: "10px" }} /> : <Bot style={{ width: "10px", height: "10px" }} />}
                     {msg.role === "user" ? intake.patient_name : "PreVisit Assistant"}
                   </span>
-                  <p className="text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                  <div
+                    style={{
+                      maxWidth: "80%",
+                      padding: "10px 13px",
+                      borderRadius: msg.role === "user" ? "13px 13px 3px 13px" : "13px 13px 13px 3px",
+                      fontSize: "0.875rem",
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.6,
+                      ...(msg.role === "user"
+                        ? {
+                            background: "rgba(37,99,235,0.07)",
+                            border: "1px solid rgba(37,99,235,0.12)",
+                          }
+                        : {
+                            background: "var(--bg-subtle)",
+                            border: "1px solid var(--border-subtle)",
+                          }),
+                    }}
+                  >
                     {msg.content}
-                  </p>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Next Steps & Action Footer */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-100 dark:border-zinc-800 print:hidden">
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span>Persisted to Supabase under intake #{intake.id.slice(0, 8)}</span>
+        {/* Footer */}
+        <div
+          className="print:hidden"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            paddingTop: "16px",
+            borderTop: "1px solid var(--border-subtle)",
+          }}
+          // sm:flex-row sm:items-center sm:justify-between
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.8125rem", color: "var(--text-quaternary)" }}>
+            <ShieldCheck style={{ width: "14px", height: "14px", color: "var(--pv-success)" }} />
+            Persisted to Supabase · ID {intake.id.slice(0, 8)}
           </div>
 
           <button
             onClick={onNewIntake}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm transition-all active:scale-98"
+            className="pv-btn-primary"
+            style={{ alignSelf: "flex-start" }}
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>Start New Intake</span>
+            <PlusCircle style={{ width: "16px", height: "16px" }} />
+            Start New Intake
           </button>
         </div>
       </div>

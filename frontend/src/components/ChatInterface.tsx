@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, AlertTriangle } from "lucide-react";
+import { Send, Bot, User, AlertTriangle, X } from "lucide-react";
 import { IntakeSession } from "@/types/intake";
 import { EmergencyBanner } from "@/components/EmergencyBanner";
 import { checkClientEmergency } from "@/lib/safety";
@@ -28,7 +28,6 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom of chat
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -37,7 +36,6 @@ export function ChatInterface({
     scrollToBottom();
   }, [intake.chat_transcript, isLoading]);
 
-  // Focus textarea when done loading
   useEffect(() => {
     if (!isLoading) {
       textareaRef.current?.focus();
@@ -49,7 +47,6 @@ export function ChatInterface({
     const text = inputText.trim();
     if (!text || isLoading) return;
 
-    // Trigger immediate emergency banner before network round-trip if emergency words detected
     if (checkClientEmergency(text)) {
       setClientEmergencyDetected(true);
     }
@@ -63,7 +60,6 @@ export function ChatInterface({
     try {
       await onSendMessage(text);
     } catch {
-      // Restore input text on failure so patient never loses their answer
       setInputText(previousText);
     }
   };
@@ -82,7 +78,6 @@ export function ChatInterface({
     }
   };
 
-  // Determine smart quick reply chips based on transcript context
   const getContextualChips = (): string[] => {
     const transcript = intake.chat_transcript;
     if (transcript.length === 0) return [];
@@ -108,7 +103,6 @@ export function ChatInterface({
     if (content.includes("other symptom") || content.includes("also experiencing") || content.includes("fever")) {
       return ["No other symptoms", "Mild fever and fatigue", "Nausea and dizziness", "Chills"];
     }
-
     return ["None", "Yes", "No", "Not sure"];
   };
 
@@ -116,62 +110,207 @@ export function ChatInterface({
   const isEmergency = intake.urgency_level === "emergency" || clientEmergencyDetected;
 
   return (
-    <div className="flex flex-col flex-1 max-w-4xl w-full mx-auto bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-xl shadow-zinc-200/40 dark:shadow-none overflow-hidden h-[75vh] min-h-[550px] transition-colors">
-      {/* Top Banner if Emergency */}
+    <div
+      className="flex flex-col flex-1 w-full mx-auto animate-scale-in"
+      style={{
+        maxWidth: "860px",
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border-default)",
+        borderRadius: "var(--radius-2xl)",
+        boxShadow: "var(--shadow-xl)",
+        overflow: "hidden",
+        height: "75vh",
+        minHeight: "520px",
+        maxHeight: "820px",
+      }}
+    >
+      {/* Emergency banner */}
       {isEmergency && (
-        <div className="p-3 border-b border-red-200 dark:border-red-900">
+        <div style={{ padding: "12px", borderBottom: "1px solid var(--border-subtle)" }}>
           <EmergencyBanner redFlags={intake.red_flags} />
         </div>
       )}
 
-      {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      {/* Chat header strip */}
+      <div
+        style={{
+          padding: "12px 20px",
+          borderBottom: "1px solid var(--border-subtle)",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          background: "var(--bg-subtle)",
+        }}
+      >
+        <div
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "9px",
+            background: "linear-gradient(135deg, var(--pv-blue-600), var(--pv-indigo-600))",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Bot style={{ width: "16px", height: "16px", color: "#fff" }} />
+        </div>
+        <div>
+          <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2 }}>
+            PreVisit Intake Assistant
+          </div>
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)" }}>
+            {intake.patient_name} · {intake.patient_age} yrs
+          </div>
+        </div>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+            fontSize: "0.6875rem",
+            color: "var(--pv-success)",
+            fontWeight: 600,
+          }}
+        >
+          <span
+            style={{
+              width: "7px",
+              height: "7px",
+              borderRadius: "50%",
+              background: "var(--pv-success)",
+              animation: isLoading ? "none" : "pulse 2s infinite",
+            }}
+          />
+          {isLoading ? "Thinking..." : "Live"}
+        </div>
+      </div>
+
+      {/* Messages area */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+      >
+        {intake.chat_transcript.length === 0 && !isLoading && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              gap: "8px",
+              color: "var(--text-quaternary)",
+              padding: "40px 20px",
+            }}
+          >
+            <div
+              style={{
+                width: "52px",
+                height: "52px",
+                borderRadius: "14px",
+                background: "var(--bg-muted)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: "4px",
+              }}
+            >
+              <Bot style={{ width: "24px", height: "24px" }} />
+            </div>
+            <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-tertiary)" }}>
+              Starting your intake...
+            </p>
+          </div>
+        )}
+
         {intake.chat_transcript.map((msg, index) => {
           const isUser = msg.role === "user";
-
-          // Format timestamp
           const timeStr = msg.timestamp
-            ? new Date(msg.timestamp).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+            ? new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : "";
+          const isLast = index === intake.chat_transcript.length - 1;
 
           return (
             <div
               key={index}
-              className={`flex items-start gap-3 ${
-                isUser ? "flex-row-reverse" : "flex-row"
-              } animate-fadeIn`}
+              className={isLast ? "animate-fade-in" : ""}
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                gap: "10px",
+                flexDirection: isUser ? "row-reverse" : "row",
+              }}
             >
               {/* Avatar */}
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs shadow-xs ${
-                  isUser
-                    ? "bg-blue-600 text-white font-semibold"
-                    : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900"
-                }`}
+                style={{
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  ...(isUser
+                    ? {
+                        background: "linear-gradient(135deg, var(--pv-blue-600), var(--pv-indigo-600))",
+                        color: "#fff",
+                      }
+                    : {
+                        background: "var(--bg-muted)",
+                        border: "1px solid var(--border-default)",
+                        color: "var(--pv-indigo-500)",
+                      }),
+                }}
               >
-                {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                {isUser ? (
+                  <User style={{ width: "14px", height: "14px" }} />
+                ) : (
+                  <Bot style={{ width: "14px", height: "14px" }} />
+                )}
               </div>
 
-              {/* Message Bubble */}
+              {/* Bubble */}
               <div
-                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-sm leading-relaxed ${
-                  isUser
-                    ? "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-tr-none shadow-md shadow-blue-500/10"
-                    : "bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/60 dark:border-zinc-700/60"
-                }`}
+                style={{
+                  maxWidth: "78%",
+                  ...(isUser
+                    ? {
+                        background: "linear-gradient(135deg, var(--pv-blue-600), var(--pv-indigo-600))",
+                        color: "#fff",
+                        borderRadius: "18px 18px 4px 18px",
+                        boxShadow: "var(--shadow-blue)",
+                      }
+                    : {
+                        background: "var(--bg-subtle)",
+                        color: "var(--text-primary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "18px 18px 18px 4px",
+                        boxShadow: "var(--shadow-xs)",
+                      }),
+                  padding: "12px 16px",
+                  fontSize: "0.9375rem",
+                  lineHeight: 1.6,
+                }}
               >
-                <div className="whitespace-pre-wrap">{msg.content}</div>
-
+                <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
                 {timeStr && (
                   <div
-                    className={`mt-1.5 text-[10px] text-right ${
-                      isUser
-                        ? "text-blue-100/80"
-                        : "text-zinc-400 dark:text-zinc-500"
-                    }`}
+                    style={{
+                      marginTop: "5px",
+                      fontSize: "0.6875rem",
+                      textAlign: "right",
+                      opacity: 0.6,
+                    }}
                   >
                     {timeStr}
                   </div>
@@ -181,15 +320,42 @@ export function ChatInterface({
           );
         })}
 
-        {/* Loading / Typing indicator */}
+        {/* Typing indicator */}
         {isLoading && (
-          <div className="flex items-start gap-3 animate-pulse">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-900 shrink-0">
-              <Bot className="w-4 h-4" />
+          <div
+            className="animate-fade-in"
+            style={{ display: "flex", alignItems: "flex-end", gap: "10px" }}
+          >
+            <div
+              style={{
+                width: "30px",
+                height: "30px",
+                borderRadius: "50%",
+                background: "var(--bg-muted)",
+                border: "1px solid var(--border-default)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                color: "var(--pv-indigo-500)",
+              }}
+            >
+              <Bot style={{ width: "14px", height: "14px" }} />
             </div>
-            <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl rounded-tl-none p-3.5 border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-              <span>PreVisit is preparing your next question...</span>
+            <div
+              style={{
+                padding: "14px 18px",
+                background: "var(--bg-subtle)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "18px 18px 18px 4px",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              <span className="typing-dot" style={{ color: "var(--text-quaternary)" }} />
+              <span className="typing-dot" style={{ color: "var(--text-quaternary)" }} />
+              <span className="typing-dot" style={{ color: "var(--text-quaternary)" }} />
             </div>
           </div>
         )}
@@ -197,37 +363,90 @@ export function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Error notification bar */}
+      {/* Error bar */}
       {error && (
-        <div className="px-4 py-2.5 bg-red-50 dark:bg-red-950/50 border-t border-red-200 dark:border-red-900 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+        <div
+          style={{
+            padding: "10px 16px",
+            background: "var(--pv-danger-bg)",
+            borderTop: "1px solid var(--pv-danger-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+            fontSize: "0.8125rem",
+            color: "#b91c1c",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            <AlertTriangle style={{ width: "14px", height: "14px", flexShrink: 0 }} />
             <span>{error}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
             {inputText.trim() && (
               <button
                 type="button"
                 onClick={() => handleSubmit()}
-                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-[11px] transition-colors"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  background: "var(--pv-danger)",
+                  color: "#fff",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                }}
               >
                 Retry
               </button>
             )}
             <button
               onClick={onClearError}
-              className="underline hover:text-red-900 dark:hover:text-red-200 font-medium text-[11px]"
+              style={{
+                width: "24px",
+                height: "24px",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "transparent",
+                border: "none",
+                color: "#b91c1c",
+                cursor: "pointer",
+                opacity: 0.7,
+              }}
             >
-              Dismiss
+              <X style={{ width: "13px", height: "13px" }} />
             </button>
           </div>
         </div>
       )}
 
-      {/* Suggested Quick Response Chips */}
+      {/* Quick reply chips */}
       {!isLoading && quickChips.length > 0 && (
-        <div className="px-4 py-2 bg-zinc-50 dark:bg-zinc-950/40 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider shrink-0">
+        <div
+          className="no-scrollbar"
+          style={{
+            padding: "8px 16px",
+            borderTop: "1px solid var(--border-subtle)",
+            background: "var(--bg-subtle)",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            overflowX: "auto",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "0.625rem",
+              fontWeight: 700,
+              letterSpacing: "0.07em",
+              textTransform: "uppercase",
+              color: "var(--text-quaternary)",
+              flexShrink: 0,
+            }}
+          >
             Quick Reply:
           </span>
           {quickChips.map((chip, idx) => (
@@ -235,7 +454,33 @@ export function ChatInterface({
               key={idx}
               type="button"
               onClick={() => handleQuickReply(chip)}
-              className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-full whitespace-nowrap transition-colors shadow-2xs active:scale-95"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "5px 12px",
+                borderRadius: "9999px",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-secondary)",
+                fontSize: "0.8125rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all var(--duration-fast) var(--ease-out)",
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => {
+                const btn = e.currentTarget as HTMLButtonElement;
+                btn.style.borderColor = "var(--pv-blue-400)";
+                btn.style.color = "var(--pv-blue-600)";
+                btn.style.background = "var(--pv-blue-50)";
+              }}
+              onMouseLeave={(e) => {
+                const btn = e.currentTarget as HTMLButtonElement;
+                btn.style.borderColor = "var(--border-default)";
+                btn.style.color = "var(--text-secondary)";
+                btn.style.background = "var(--bg-surface)";
+              }}
             >
               {chip}
             </button>
@@ -243,10 +488,19 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Chat Input Footer */}
-      <div className="p-3 sm:p-4 bg-zinc-50/90 dark:bg-zinc-950/60 border-t border-zinc-200/80 dark:border-zinc-800">
-        <form onSubmit={handleSubmit} className="flex items-end gap-2 sm:gap-3">
-          <div className="relative flex-1">
+      {/* Input footer */}
+      <div
+        style={{
+          padding: "12px 16px 14px",
+          background: "var(--bg-surface)",
+          borderTop: "1px solid var(--border-subtle)",
+        }}
+      >
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", alignItems: "flex-end", gap: "10px" }}
+        >
+          <div style={{ position: "relative", flex: 1 }}>
             <textarea
               ref={textareaRef}
               rows={1}
@@ -258,34 +512,108 @@ export function ChatInterface({
               }}
               onKeyDown={handleKeyDown}
               disabled={isLoading}
-              placeholder="Type your answer here... (Press Enter to send)"
-              className="w-full resize-none max-h-32 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all leading-normal"
+              placeholder="Type your answer… (Enter to send)"
+              style={{
+                width: "100%",
+                resize: "none",
+                maxHeight: "120px",
+                padding: "11px 14px",
+                background: "var(--bg-subtle)",
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-lg)",
+                fontSize: "0.9375rem",
+                fontFamily: "var(--font-sans)",
+                color: "var(--text-primary)",
+                lineHeight: 1.5,
+                outline: "none",
+                transition: "border-color var(--duration-normal), box-shadow var(--duration-normal)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--pv-blue-500)";
+                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-default)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
 
           <button
             type="submit"
             disabled={!inputText.trim() || isLoading}
-            className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-sm hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             title="Send Message"
             aria-label="Send Message"
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "var(--radius-lg)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: inputText.trim() && !isLoading
+                ? "linear-gradient(135deg, var(--pv-blue-600), var(--pv-indigo-600))"
+                : "var(--bg-muted)",
+              color: inputText.trim() && !isLoading ? "#fff" : "var(--text-quaternary)",
+              border: "none",
+              cursor: inputText.trim() && !isLoading ? "pointer" : "not-allowed",
+              flexShrink: 0,
+              transition: "all var(--duration-normal) var(--ease-out)",
+              boxShadow: inputText.trim() && !isLoading ? "var(--shadow-blue)" : "none",
+            }}
           >
             {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <svg
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  animation: "spin 1s linear infinite",
+                  color: "var(--pv-blue-500)",
+                }}
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40" strokeDashoffset="10" strokeLinecap="round" />
+              </svg>
             ) : (
-              <Send className="w-5 h-5" />
+              <Send style={{ width: "18px", height: "18px" }} />
             )}
           </button>
         </form>
 
-        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-2 px-1">
-          <span>Asking one short question at a time to prepare for your doctor.</span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: "7px",
+            paddingLeft: "2px",
+          }}
+        >
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-quaternary)" }}>
+            One question at a time — preparing your doctor&apos;s brief
+          </span>
           <button
             type="button"
             onClick={onCompleteIntake}
-            className="text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 underline font-medium"
+            style={{
+              fontSize: "0.6875rem",
+              color: "var(--text-quaternary)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              textDecoration: "underline",
+              textDecorationColor: "var(--border-strong)",
+              transition: "color var(--duration-fast)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--pv-blue-600)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-quaternary)";
+            }}
           >
-            Finished all answers? Complete Intake
+            Finished? Complete Intake →
           </button>
         </div>
       </div>

@@ -155,7 +155,16 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-500 selection:text-white">
+    <div
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-base)",
+        color: "var(--text-primary)",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
       {/* Header */}
       <Header
         intake={intake}
@@ -163,7 +172,7 @@ export default function Home() {
         isBackendConnected={isBackendHealthy}
       />
 
-      {/* Progress Tracker (when intake exists) */}
+      {/* Progress Tracker */}
       {intake && (
         <ProgressTracker
           transcript={intake.chat_transcript}
@@ -171,12 +180,60 @@ export default function Home() {
         />
       )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col p-4 sm:p-6 justify-center">
+      {/* Main Content */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          padding: "clamp(16px, 4vw, 32px) clamp(16px, 4vw, 24px)",
+          justifyContent: !intake ? "center" : "flex-start",
+          alignItems: "center",
+        }}
+      >
         {isInitializing ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-20 text-zinc-500">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <p className="text-sm font-medium">Restoring patient intake session...</p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              padding: "80px 20px",
+              color: "var(--text-quaternary)",
+            }}
+          >
+            {/* Skeleton loader instead of raw spinner */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "13px",
+                  background: "var(--bg-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Loader2
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    color: "var(--pv-blue-500)",
+                    animation: "spin 1s linear infinite",
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-quaternary)" }}>
+                Restoring your session…
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "320px" }}>
+                <div className="skeleton" style={{ height: "16px", width: "60%" }} />
+                <div className="skeleton" style={{ height: "12px", width: "80%" }} />
+                <div className="skeleton" style={{ height: "12px", width: "45%" }} />
+              </div>
+            </div>
           </div>
         ) : !intake ? (
           <PatientEntryForm
@@ -185,29 +242,44 @@ export default function Home() {
             error={error}
           />
         ) : intake.status === "completed" ? (
-          <IntakeCompletedView
-            intake={intake}
-            onNewIntake={handleNewIntake}
-            onUpdateIntake={setIntake}
-          />
+          <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            <IntakeCompletedView
+              intake={intake}
+              onNewIntake={handleNewIntake}
+              onUpdateIntake={setIntake}
+            />
+          </div>
         ) : (
-          <ChatInterface
-            intake={intake}
-            onSendMessage={handleSendMessage}
-            onCompleteIntake={handleCompleteIntake}
-            isLoading={isLoading}
-            error={error}
-            onClearError={() => setError(null)}
-          />
+          <div style={{ width: "100%", display: "flex", flex: 1, justifyContent: "center" }}>
+            <ChatInterface
+              intake={intake}
+              onSendMessage={handleSendMessage}
+              onCompleteIntake={handleCompleteIntake}
+              isLoading={isLoading}
+              error={error}
+              onClearError={() => setError(null)}
+            />
+          </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="py-4 border-t border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-500 dark:text-zinc-400">
-        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>PreVisit Clinical Intake Assistant &bull; HIPAA-conscious architecture</span>
-          <span>Data secured in PostgreSQL with Row Level Security</span>
-        </div>
+      <footer
+        className="print:hidden"
+        style={{
+          padding: "14px 24px",
+          borderTop: "1px solid var(--border-subtle)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
+          flexWrap: "wrap",
+          fontSize: "0.6875rem",
+          color: "var(--text-quaternary)",
+        }}
+      >
+        <span>PreVisit Clinical Intake · HIPAA-conscious architecture</span>
+        <span>Secured in PostgreSQL with Row-Level Security</span>
       </footer>
     </div>
   );

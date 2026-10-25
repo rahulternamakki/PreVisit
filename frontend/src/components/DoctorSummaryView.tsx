@@ -14,6 +14,8 @@ import {
   HelpCircle,
   History,
   MessageSquare,
+  User,
+  Bot,
 } from "lucide-react";
 import { IntakeSession } from "@/types/intake";
 import { updateDoctorIntakeStatus } from "@/lib/api";
@@ -23,6 +25,69 @@ interface DoctorSummaryViewProps {
   token: string;
   onBack: () => void;
   onIntakeUpdated?: (updated: IntakeSession) => void;
+}
+
+function SectionLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        fontSize: "0.6875rem",
+        fontWeight: 800,
+        letterSpacing: "0.07em",
+        textTransform: "uppercase",
+        color: "var(--text-quaternary)",
+        marginBottom: "10px",
+      }}
+    >
+      {icon}
+      {children}
+    </div>
+  );
+}
+
+function SectionCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div
+      style={{
+        background: "var(--bg-subtle)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-lg)",
+        padding: "16px 18px",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TagList({ items, color }: { items: string[]; color: string }) {
+  if (!items || items.length === 0) {
+    return <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", fontStyle: "italic" }}>None reported</p>;
+  }
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+      {items.map((item, idx) => (
+        <span
+          key={idx}
+          style={{
+            padding: "4px 10px",
+            borderRadius: "6px",
+            fontSize: "0.8125rem",
+            fontWeight: 500,
+            background: `${color}12`,
+            color: color,
+            border: `1px solid ${color}25`,
+          }}
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function DoctorSummaryView({
@@ -41,6 +106,10 @@ export function DoctorSummaryView({
   const summary = intake.summary;
   const redFlags = intake.red_flags || summary?.red_flags || [];
 
+  const urgencyColor = isEmergency ? "var(--pv-danger)" : isUrgent ? "var(--pv-warning)" : "var(--pv-success)";
+  const urgencyBg = isEmergency ? "var(--pv-danger-bg)" : isUrgent ? "var(--pv-warning-bg)" : "var(--pv-success-bg)";
+  const urgencyBorder = isEmergency ? "var(--pv-danger-border)" : isUrgent ? "var(--pv-warning-border)" : "var(--pv-success-border)";
+
   const handleToggleReviewed = async () => {
     setIsUpdatingStatus(true);
     const newStatus = isReviewed ? "completed" : "reviewed";
@@ -56,11 +125,8 @@ export function DoctorSummaryView({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
-  // Format timestamp
   const formattedDate = intake.created_at
     ? new Date(intake.created_at).toLocaleString("en-US", {
         month: "short",
@@ -72,122 +138,238 @@ export function DoctorSummaryView({
     : "Recently Submitted";
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 print:m-0 print:p-0 print:max-w-none text-left">
-      {/* Non-Print Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 p-4 rounded-2xl shadow-sm print:hidden">
-        <button
-          onClick={onBack}
-          type="button"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Patient Queue</span>
+    <div
+      className="animate-fade-in"
+      style={{
+        width: "100%",
+        maxWidth: "800px",
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px",
+      }}
+    >
+      {/* Action bar */}
+      <div
+        className="pv-card print:hidden"
+        style={{ padding: "12px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}
+      >
+        <button onClick={onBack} type="button" className="pv-btn-secondary" style={{ gap: "6px" }}>
+          <ArrowLeft style={{ width: "15px", height: "15px" }} />
+          Back to Queue
         </button>
 
-        <div className="flex items-center gap-2">
-          {/* Status Toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button
             onClick={handleToggleReviewed}
             disabled={isUpdatingStatus}
             type="button"
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-              isReviewed
-                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
-                : "bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
-            }`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 14px",
+              borderRadius: "10px",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              cursor: isUpdatingStatus ? "wait" : "pointer",
+              border: "1px solid",
+              transition: "all var(--duration-normal)",
+              ...(isReviewed
+                ? {
+                    background: "var(--pv-success-bg)",
+                    borderColor: "var(--pv-success-border)",
+                    color: "var(--pv-success)",
+                  }
+                : {
+                    background: "var(--bg-subtle)",
+                    borderColor: "var(--border-default)",
+                    color: "var(--text-secondary)",
+                  }),
+            }}
           >
-            <CheckCircle className={`w-3.5 h-3.5 ${isReviewed ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
-            <span>{isReviewed ? "Marked as Reviewed" : "Mark as Reviewed"}</span>
+            <CheckCircle style={{ width: "14px", height: "14px" }} />
+            {isReviewed ? "Reviewed ✓" : "Mark Reviewed"}
           </button>
 
-          {/* Print Button */}
           <button
             onClick={handlePrint}
             type="button"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 transition-colors"
+            className="pv-btn-primary"
+            style={{
+              padding: "7px 14px",
+              fontSize: "0.8125rem",
+              background: "linear-gradient(135deg, var(--pv-indigo-600), #7c3aed)",
+              boxShadow: "var(--shadow-indigo)",
+              gap: "6px",
+            }}
           >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print 1-Page Summary</span>
+            <Printer style={{ width: "14px", height: "14px" }} />
+            Print Summary
           </button>
         </div>
       </div>
 
-      {/* Main Clinical Document Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl shadow-xl shadow-zinc-200/50 dark:shadow-none p-6 sm:p-8 space-y-6 print:border-none print:shadow-none print:p-0 print:space-y-4">
-        
-        {/* Document Header (Print & Screen) */}
-        <div className="pb-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1.5">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                PreVisit Clinical Summary
-              </span>
+      {/* Main clinical document */}
+      <div
+        className="pv-card-elevated print:border-none print:shadow-none"
+        style={{ padding: "28px 28px", display: "flex", flexDirection: "column", gap: "24px" }}
+      >
+        {/* Document header */}
+        <div
+          style={{
+            paddingBottom: "20px",
+            borderBottom: "1px solid var(--border-subtle)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+          }}
+        >
+          {/* Badges */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "7px", alignItems: "center" }}>
+            <span
+              style={{
+                padding: "3px 9px",
+                borderRadius: "9999px",
+                background: "var(--pv-indigo-50)",
+                border: "1px solid var(--pv-indigo-100, #e0e7ff)",
+                color: "var(--pv-indigo-700)",
+                fontSize: "0.6875rem",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              PreVisit Clinical Summary
+            </span>
+            <span
+              style={{
+                padding: "3px 9px",
+                borderRadius: "9999px",
+                background: urgencyBg,
+                border: `1px solid ${urgencyBorder}`,
+                color: urgencyColor,
+                fontSize: "0.6875rem",
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                animation: isEmergency ? "pulse 1.5s infinite" : "none",
+              }}
+            >
+              {intake.urgency_level} Priority
+            </span>
+            {isReviewed && (
               <span
-                className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                  isEmergency
-                    ? "bg-red-50 text-red-700 border-red-300 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800 animate-pulse"
-                    : isUrgent
-                    ? "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
-                }`}
+                style={{
+                  padding: "3px 9px",
+                  borderRadius: "9999px",
+                  background: "var(--pv-success-bg)",
+                  border: "1px solid var(--pv-success-border)",
+                  color: "var(--pv-success)",
+                  fontSize: "0.6875rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                }}
               >
-                {intake.urgency_level} Priority
+                ✓ Reviewed
               </span>
-              {isReviewed && (
-                <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700">
-                  Reviewed
-                </span>
-              )}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
-              {intake.patient_name}
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Age: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{intake.patient_age} yrs</span> • Submitted: {formattedDate} • Intake ID: {intake.id.slice(0, 8)}
-            </p>
+            )}
           </div>
 
-          <div className="text-right hidden sm:block print:block">
-            <span className="text-[11px] font-mono text-zinc-400">PreVisit EMR v1.0</span>
-            <div className="text-xs text-zinc-500">Confidential Medical Record</div>
+          {/* Patient info */}
+          <div>
+            <h1
+              style={{
+                fontSize: "1.75rem",
+                fontWeight: 900,
+                letterSpacing: "-0.04em",
+                color: "var(--text-primary)",
+                margin: "0 0 4px",
+              }}
+            >
+              {intake.patient_name}
+            </h1>
+            <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)" }}>
+              Age: <strong style={{ color: "var(--text-secondary)" }}>{intake.patient_age} yrs</strong>
+              {" · "}
+              Submitted: <strong style={{ color: "var(--text-secondary)" }}>{formattedDate}</strong>
+              {" · "}
+              ID: <code style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.75rem" }}>{intake.id.slice(0, 8)}</code>
+            </p>
           </div>
         </div>
 
-        {/* ================================================================== */}
-        {/* 1. RED FLAGS PANEL (FIRST - AS REQUIRED)                           */}
-        {/* ================================================================== */}
+        {/* Red flags */}
         {redFlags && redFlags.length > 0 ? (
-          <div className="p-5 rounded-2xl bg-red-50/90 dark:bg-red-950/40 border-2 border-red-300 dark:border-red-800/80 space-y-3.5 print:bg-red-50 print:border-red-400 print:break-avoid">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 animate-bounce" />
+          <div
+            style={{
+              background: "var(--pv-danger-bg)",
+              border: "2px solid var(--pv-danger-border)",
+              borderRadius: "var(--radius-xl)",
+              padding: "18px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <ShieldAlert style={{ width: "18px", height: "18px", color: "var(--pv-danger)", flexShrink: 0 }} />
               <div>
-                <h2 className="text-sm font-black uppercase tracking-wider text-red-900 dark:text-red-200">
-                  Clinical Red Flags Requiring Immediate Physician Attention ({redFlags.length})
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 800, color: "#991b1b", margin: 0 }}>
+                  Clinical Red Flags · Immediate Physician Attention ({redFlags.length})
                 </h2>
-                <p className="text-xs text-red-700 dark:text-red-300">
-                  Critical findings detected during intake with corroborating patient statements.
+                <p style={{ fontSize: "0.75rem", color: "#b91c1c", margin: "2px 0 0" }}>
+                  Critical findings with corroborating patient statements.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-3 pt-1">
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {redFlags.map((flag, idx) => (
                 <div
                   key={idx}
-                  className="bg-white/90 dark:bg-zinc-900/90 border border-red-200 dark:border-red-900/60 rounded-xl p-3.5 space-y-2 shadow-xs"
+                  style={{
+                    background: "var(--bg-surface)",
+                    border: "1px solid var(--pv-danger-border)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: "12px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                    <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--pv-danger)" }}>
                       Finding #{idx + 1}: {flag.reason}
                     </span>
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-200 dark:border-red-800">
+                    <span
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: "9999px",
+                        background: "var(--pv-danger)",
+                        color: "#fff",
+                        fontSize: "0.625rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        flexShrink: 0,
+                      }}
+                    >
                       {flag.severity || "urgent"}
                     </span>
                   </div>
-
-                  <div className="bg-red-50/60 dark:bg-zinc-800/60 border-l-3 border-red-500 pl-3 py-1.5 text-xs italic text-zinc-700 dark:text-zinc-200">
-                    <span className="font-semibold not-italic text-red-600 dark:text-red-400 mr-1.5">
-                      Patient&apos;s Own Words:
+                  <div
+                    style={{
+                      borderLeft: "3px solid var(--pv-danger)",
+                      paddingLeft: "12px",
+                      fontSize: "0.8125rem",
+                      color: "var(--text-secondary)",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, fontStyle: "normal", color: "var(--pv-danger)" }}>
+                      Patient&apos;s words:{" "}
                     </span>
                     &ldquo;{flag.patient_quote}&rdquo;
                   </div>
@@ -196,191 +378,259 @@ export function DoctorSummaryView({
             </div>
           </div>
         ) : (
-          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-3 text-emerald-800 dark:text-emerald-300 text-xs">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div>
-              <span className="font-bold">No Acute Red Flags: </span>
-              <span>Patient intake conversation completed without acute emergency or critical triage triggers.</span>
-            </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "12px 16px",
+              borderRadius: "var(--radius-lg)",
+              background: "var(--pv-success-bg)",
+              border: "1px solid var(--pv-success-border)",
+              color: "var(--pv-success)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+            }}
+          >
+            <CheckCircle style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+            <span>
+              <strong>No acute red flags</strong> — intake completed without emergency or critical triage triggers.
+            </span>
           </div>
         )}
 
-        {/* ================================================================== */}
-        {/* 2. STRUCTURED CLINICAL SUMMARY                                      */}
-        {/* ================================================================== */}
-        <div className="space-y-5 print:space-y-3.5 print:break-avoid">
-          {/* Chief Complaint */}
-          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block mb-1">
-              Chief Complaint
-            </span>
-            <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              {summary?.chief_complaint || intake.chief_complaint || "None specified"}
-            </p>
-          </div>
+        {/* Chief complaint */}
+        <SectionCard>
+          <SectionLabel icon={null}>Chief Complaint</SectionLabel>
+          <p style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+            {summary?.chief_complaint || intake.chief_complaint || "None specified"}
+          </p>
+        </SectionCard>
 
-          {/* History of Present Illness (HPI) */}
-          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block mb-1">
-              History of Present Illness (HPI)
-            </span>
-            <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-              {summary?.history_of_present_illness || "No narrative history available."}
-            </p>
-          </div>
+        {/* HPI */}
+        <SectionCard>
+          <SectionLabel icon={null}>History of Present Illness (HPI)</SectionLabel>
+          <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
+            {summary?.history_of_present_illness || "No narrative history available."}
+          </p>
+        </SectionCard>
 
-          {/* Clinical Grid: Symptoms, History, Medications, Allergies */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3">
-            {/* Symptoms */}
-            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                <Activity className="w-3.5 h-3.5 text-blue-500" />
-                <span>Associated Symptoms</span>
-              </div>
-              {summary?.symptoms && summary.symptoms.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {summary.symptoms.map((s, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-medium"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-zinc-500 italic">None reported</p>
-              )}
-            </div>
+        {/* 2×2 clinical grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "12px",
+          }}
+        >
+          {/* Symptoms */}
+          <SectionCard>
+            <SectionLabel icon={<Activity style={{ width: "12px", height: "12px", color: "var(--pv-blue-500)" }} />}>
+              Associated Symptoms
+            </SectionLabel>
+            <TagList items={summary?.symptoms || []} color="var(--pv-blue-600)" />
+          </SectionCard>
 
-            {/* Past Medical History */}
-            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                <History className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Past Medical History</span>
-              </div>
-              {summary?.medical_history && summary.medical_history.length > 0 ? (
-                <ul className="text-xs text-zinc-700 dark:text-zinc-300 space-y-1 list-disc list-inside">
-                  {summary.medical_history.map((h, idx) => (
-                    <li key={idx}>{h}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-zinc-500 italic">No chronic conditions reported</p>
-              )}
-            </div>
-
-            {/* Current Medications */}
-            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                <Pill className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Current Medications</span>
-              </div>
-              {summary?.medications && summary.medications.length > 0 ? (
-                <ul className="text-xs text-zinc-700 dark:text-zinc-300 space-y-1 list-disc list-inside">
-                  {summary.medications.map((m, idx) => (
-                    <li key={idx}>{m}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-zinc-500 italic">No daily medications reported</p>
-              )}
-            </div>
-
-            {/* Known Allergies */}
-            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                <span>Known Allergies</span>
-              </div>
-              {summary?.allergies && summary.allergies.length > 0 ? (
-                <ul className="text-xs text-zinc-700 dark:text-zinc-300 space-y-1 list-disc list-inside">
-                  {summary.allergies.map((a, idx) => (
-                    <li key={idx} className="font-semibold text-amber-700 dark:text-amber-400">
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-zinc-500 italic">No known drug allergies (NKDA)</p>
-              )}
-            </div>
-          </div>
-
-          {/* Suggested Physician Questions */}
-          {summary?.suggested_questions && summary.suggested_questions.length > 0 && (
-            <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 space-y-2.5 print:break-avoid">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
-                  Suggested Clinical Questions for Examination
-                </h3>
-              </div>
-              <ul className="space-y-1.5 text-xs text-zinc-800 dark:text-zinc-200 pl-1">
-                {summary.suggested_questions.map((q, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
-                      Q{idx + 1}:
-                    </span>
-                    <span>{q}</span>
-                  </li>
-                ))}
+          {/* History */}
+          <SectionCard>
+            <SectionLabel icon={<History style={{ width: "12px", height: "12px", color: "var(--pv-indigo-500)" }} />}>
+              Past Medical History
+            </SectionLabel>
+            {summary?.medical_history && summary.medical_history.length > 0 ? (
+              <ul style={{ margin: 0, padding: "0 0 0 16px", fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                {summary.medical_history.map((h, idx) => <li key={idx}>{h}</li>)}
               </ul>
-            </div>
-          )}
+            ) : (
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", fontStyle: "italic" }}>No chronic conditions</p>
+            )}
+          </SectionCard>
+
+          {/* Medications */}
+          <SectionCard>
+            <SectionLabel icon={<Pill style={{ width: "12px", height: "12px", color: "var(--pv-success)" }} />}>
+              Current Medications
+            </SectionLabel>
+            {summary?.medications && summary.medications.length > 0 ? (
+              <ul style={{ margin: 0, padding: "0 0 0 16px", fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                {summary.medications.map((m, idx) => <li key={idx}>{m}</li>)}
+              </ul>
+            ) : (
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", fontStyle: "italic" }}>No daily medications</p>
+            )}
+          </SectionCard>
+
+          {/* Allergies */}
+          <SectionCard>
+            <SectionLabel icon={<AlertTriangle style={{ width: "12px", height: "12px", color: "var(--pv-warning)" }} />}>
+              Known Allergies
+            </SectionLabel>
+            {summary?.allergies && summary.allergies.length > 0 ? (
+              <ul style={{ margin: 0, padding: "0 0 0 16px", fontSize: "0.875rem", color: "var(--pv-warning)", fontWeight: 600, lineHeight: 1.8 }}>
+                {summary.allergies.map((a, idx) => <li key={idx}>{a}</li>)}
+              </ul>
+            ) : (
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-quaternary)", fontStyle: "italic" }}>NKDA — No Known Drug Allergies</p>
+            )}
+          </SectionCard>
         </div>
 
-        {/* ================================================================== */}
-        {/* 3. VERIFICATION: COLLAPSIBLE FULL TRANSCRIPT                       */}
-        {/* ================================================================== */}
-        <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 print:hidden">
+        {/* Suggested questions */}
+        {summary?.suggested_questions && summary.suggested_questions.length > 0 && (
+          <div
+            style={{
+              background: "var(--pv-indigo-50)",
+              border: "1px solid var(--pv-indigo-100, #e0e7ff)",
+              borderRadius: "var(--radius-xl)",
+              padding: "18px 20px",
+            }}
+          >
+            <SectionLabel icon={<HelpCircle style={{ width: "12px", height: "12px", color: "var(--pv-indigo-600)" }} />}>
+              Suggested Clinical Questions
+            </SectionLabel>
+            <ol
+              style={{
+                margin: 0,
+                padding: "0 0 0 18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
+              {summary.suggested_questions.map((q, idx) => (
+                <li
+                  key={idx}
+                  style={{
+                    fontSize: "0.9375rem",
+                    color: "var(--text-secondary)",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {q}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {/* Transcript toggle */}
+        <div
+          className="print:hidden"
+          style={{
+            borderTop: "1px solid var(--border-subtle)",
+            paddingTop: "16px",
+          }}
+        >
           <button
             type="button"
             onClick={() => setShowTranscript(!showTranscript)}
-            className="w-full flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 transition-colors text-left"
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              borderRadius: "var(--radius-lg)",
+              background: "var(--bg-subtle)",
+              border: "1px solid var(--border-default)",
+              cursor: "pointer",
+              transition: "background var(--duration-normal)",
+              color: "var(--text-secondary)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-muted)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-subtle)";
+            }}
           >
-            <div className="flex items-center gap-2.5">
-              <MessageSquare className="w-4 h-4 text-zinc-500" />
-              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                Full Conversation Transcript (Clinical Verification Source)
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <MessageSquare style={{ width: "15px", height: "15px", color: "var(--text-quaternary)" }} />
+              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                Full Conversation Transcript
               </span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+              <span
+                style={{
+                  padding: "2px 7px",
+                  borderRadius: "9999px",
+                  background: "var(--bg-muted)",
+                  color: "var(--text-quaternary)",
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                }}
+              >
                 {intake.chat_transcript?.length || 0} messages
               </span>
             </div>
             {showTranscript ? (
-              <ChevronUp className="w-4 h-4 text-zinc-500" />
+              <ChevronUp style={{ width: "15px", height: "15px", color: "var(--text-quaternary)" }} />
             ) : (
-              <ChevronDown className="w-4 h-4 text-zinc-500" />
+              <ChevronDown style={{ width: "15px", height: "15px", color: "var(--text-quaternary)" }} />
             )}
           </button>
 
           {showTranscript && (
-            <div className="mt-3 p-4 rounded-2xl bg-zinc-50/70 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 max-h-96 overflow-y-auto space-y-3">
+            <div
+              className="animate-fade-in"
+              style={{
+                marginTop: "10px",
+                padding: "16px",
+                borderRadius: "var(--radius-xl)",
+                background: "var(--bg-subtle)",
+                border: "1px solid var(--border-subtle)",
+                maxHeight: "380px",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
               {intake.chat_transcript && intake.chat_transcript.length > 0 ? (
                 intake.chat_transcript.map((msg, idx) => {
                   const isUser = msg.role === "user";
                   return (
                     <div
                       key={idx}
-                      className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                      style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start" }}
                     >
-                      <div className="flex items-center gap-1.5 mb-1 text-[10px] text-zinc-400">
-                        <span className="font-semibold uppercase">
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          marginBottom: "4px",
+                          fontSize: "0.6875rem",
+                          color: "var(--text-quaternary)",
+                        }}
+                      >
+                        {isUser ? <User style={{ width: "11px", height: "11px" }} /> : <Bot style={{ width: "11px", height: "11px" }} />}
+                        <span style={{ fontWeight: 600 }}>
                           {isUser ? intake.patient_name : "Intake Assistant"}
                         </span>
                         {msg.timestamp && (
                           <span>
-                            • {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            · {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         )}
                       </div>
                       <div
-                        className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed ${
-                          isUser
-                            ? "bg-indigo-600 text-white rounded-br-none shadow-xs"
-                            : "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-bl-none shadow-xs"
-                        }`}
+                        style={{
+                          maxWidth: "85%",
+                          padding: "10px 14px",
+                          borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                          fontSize: "0.875rem",
+                          lineHeight: 1.6,
+                          ...(isUser
+                            ? {
+                                background: "linear-gradient(135deg, var(--pv-indigo-600), #7c3aed)",
+                                color: "#fff",
+                                boxShadow: "var(--shadow-indigo)",
+                              }
+                            : {
+                                background: "var(--bg-surface)",
+                                color: "var(--text-secondary)",
+                                border: "1px solid var(--border-default)",
+                              }),
+                        }}
                       >
                         {msg.content}
                       </div>
@@ -388,18 +638,18 @@ export function DoctorSummaryView({
                   );
                 })
               ) : (
-                <p className="text-xs text-zinc-400 italic text-center py-2">
-                  No transcript messages found for this intake session.
+                <p style={{ fontSize: "0.875rem", color: "var(--text-quaternary)", textAlign: "center", padding: "20px 0", fontStyle: "italic" }}>
+                  No transcript available
                 </p>
               )}
             </div>
           )}
         </div>
 
-        {/* Print Footer */}
-        <div className="hidden print:block pt-3 border-t border-zinc-300 text-[10px] text-zinc-500 flex justify-between">
-          <span>PreVisit Clinical Intake • Generated automatically for Physician Review</span>
-          <span>Confidential • Medical Record</span>
+        {/* Print footer */}
+        <div className="hidden print:flex" style={{ paddingTop: "12px", borderTop: "1px solid #ddd", justifyContent: "space-between", fontSize: "0.6875rem", color: "#555" }}>
+          <span>PreVisit Clinical Intake · Generated for Physician Review</span>
+          <span>Confidential · Medical Record</span>
         </div>
       </div>
     </div>
