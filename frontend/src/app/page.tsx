@@ -1,69 +1,212 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import { Header } from "@/components/Header";
+import { ProgressTracker } from "@/components/ProgressTracker";
+import { PatientEntryForm } from "@/components/PatientEntryForm";
+import { ChatInterface } from "@/components/ChatInterface";
+import { IntakeCompletedView } from "@/components/IntakeCompletedView";
+import { IntakeSession } from "@/types/intake";
+import {
+  createIntake,
+  getIntake,
+  sendChatMessage,
+  completeIntake,
+  checkBackendHealth,
+} from "@/lib/api";
+import { Loader2, RefreshCw } from "lucide-react";
+
+const STORAGE_KEY = "previsit_active_intake_id";
 
 export default function Home() {
+  const [intake, setIntake] = useState<IntakeSession | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isBackendHealthy, setIsBackendHealthy] = useState(true);
+
+  // Health check on mount
+  useEffect(() => {
+    checkBackendHealth().then((health) => {
+      setIsBackendHealthy(health.ok);
+    });
+  }, []);
+
+  // Restore intake session on mount from URL or localStorage
+  useEffect(() => {
+    const restoreSession = async () => {
+      setIsInitializing(true);
+      setError(null);
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlIntakeId = urlParams.get("intakeId");
+        const storedIntakeId = localStorage.getItem(STORAGE_KEY);
+        const targetId = urlIntakeId || storedIntakeId;
+
+        if (targetId) {
+          const loaded = await getIntake(targetId);
+          setIntake(loaded);
+          // Sync URL and localStorage
+          localStorage.setItem(STORAGE_KEY, targetId);
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set("intakeId", targetId);
+          window.history.replaceState({}, "", newUrl.toString());
+        }
+      } catch (err: unknown) {
+        console.warn("Could not restore previous intake session:", err);
+        // Clear invalid saved ID
+        localStorage.removeItem(STORAGE_KEY);
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete("intakeId");
+        window.history.replaceState({}, "", newUrl.toString());
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  // Handle creating a new intake session
+  const handleStartIntake = async (
+    name: string,
+    age: number,
+    chiefComplaint?: string
+  ) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const newIntake = await createIntake(name, age, chiefComplaint);
+      setIntake(newIntake);
+      localStorage.setItem(STORAGE_KEY, newIntake.id);
+
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set("intakeId", newIntake.id);
+      window.history.pushState({}, "", newUrl.toString());
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to start intake.";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle sending a chat message
+  const handleSendMessage = async (message: string) => {
+    if (!intake) return;
+    const previousIntake = intake;
+
+    // Optimistically show user message immediately
+    const optimisticMessage = {
+      role: "user" as const,
+      content: message,
+      timestamp: new Date().toISOString(),
+    };
+    setIntake({
+      ...intake,
+      chat_transcript: [...intake.chat_transcript, optimisticMessage],
+    });
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const chatResponse = await sendChatMessage(intake.id, message);
+      setIntake(chatResponse.intake);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send message.";
+      setError(msg);
+      // Revert optimistic transcript on error
+      setIntake(previousIntake);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle explicit completion
+  const handleCompleteIntake = async () => {
+    if (!intake) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const completed = await completeIntake(intake.id);
+      setIntake(completed);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to complete intake.";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle starting over / new intake
+  const handleNewIntake = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.delete("intakeId");
+    window.history.pushState({}, "", newUrl.toString());
+    setIntake(null);
+    setError(null);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-blue-500 selection:text-white">
+      {/* Header */}
+      <Header
+        intake={intake}
+        onNewIntake={handleNewIntake}
+        isBackendConnected={isBackendHealthy}
+      />
+
+      {/* Progress Tracker (when intake exists) */}
+      {intake && (
+        <ProgressTracker
+          transcript={intake.chat_transcript}
+          isCompleted={intake.status === "completed"}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      )}
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col p-4 sm:p-6 justify-center">
+        {isInitializing ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-20 text-zinc-500">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <p className="text-sm font-medium">Restoring patient intake session...</p>
+          </div>
+        ) : !intake ? (
+          <PatientEntryForm
+            onSubmit={handleStartIntake}
+            isLoading={isLoading}
+            error={error}
+          />
+        ) : intake.status === "completed" ? (
+          <IntakeCompletedView
+            intake={intake}
+            onNewIntake={handleNewIntake}
+          />
+        ) : (
+          <ChatInterface
+            intake={intake}
+            onSendMessage={handleSendMessage}
+            onCompleteIntake={handleCompleteIntake}
+            isLoading={isLoading}
+            error={error}
+            onClearError={() => setError(null)}
+          />
+        )}
       </main>
+
+      {/* Footer */}
+      <footer className="py-4 border-t border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>PreVisit Clinical Intake Assistant &bull; HIPAA-conscious architecture</span>
+          <span>Data secured in PostgreSQL with Row Level Security</span>
+        </div>
+      </footer>
     </div>
   );
 }

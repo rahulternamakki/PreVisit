@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # Groq (Phase 2 & Phase 3)
     GROQ_API_KEY: Optional[str] = None
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     
     # Doctor Portal Security (Phase 4)
     DOCTOR_PASSCODE: str = "123456"

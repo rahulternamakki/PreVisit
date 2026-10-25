@@ -70,3 +70,20 @@ class IntakeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000, description="Patient reply message")
+
+    @field_validator("message")
+    def message_not_empty(cls, v: str) -> str:
+        v_stripped = v.strip()
+        if not v_stripped:
+            raise ValueError("Message cannot be empty or blank")
+        return v_stripped
+
+class ChatResponse(BaseModel):
+    message: ChatMessage
+    intake: IntakeResponse
+    is_complete: bool = False
+    emergency_detected: bool = False
+    new_red_flags: List[RedFlag] = Field(default_factory=list)

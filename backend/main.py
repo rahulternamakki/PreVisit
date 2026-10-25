@@ -1,15 +1,22 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from config import settings
 from database import check_database_connection
 from routers.intakes import router as intakes_router
+
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="PreVisit API",
     description="Backend service for PreVisit - AI-powered patient intake and doctor summary generator",
     version="0.1.0"
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS setup
 origins = list(set([

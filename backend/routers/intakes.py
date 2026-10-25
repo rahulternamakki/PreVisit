@@ -1,16 +1,21 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from schemas.intake import (
     IntakeCreate,
     IntakeUpdate,
     AppendMessageRequest,
     IntakeResponse,
+    ChatRequest,
+    ChatResponse,
 )
 from services.intake_service import IntakeService, IntakeNotFoundError
 
 logger = logging.getLogger("previsit.routers.intakes")
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/intakes", tags=["Intakes"])
 
 def _handle_value_error(e: ValueError):
@@ -96,6 +101,52 @@ def append_message(intake_id: str, payload: AppendMessageRequest):
         _handle_value_error(e)
     except Exception as e:
         logger.error(f"Error appending message to intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
+
+@router.post(
+    "/{intake_id}/chat",
+    response_model=ChatResponse,
+    summary="Send a message and receive the next adaptive intake question"
+)
+@limiter.limit("60/minute")
+def send_chat_message(request: Request, intake_id: str, payload: ChatRequest):
+    """
+    Submits a patient's response, checks for acute emergency indicators,
+    saves the patient's message to Supabase, generates the next short,
+    adaptive clinical intake question via Groq LLM, saves the assistant
+    reply to Supabase, and checks if all intake domains are complete.
+    """
+    try:
+        result = IntakeService.process_chat_turn(intake_id, payload.message)
+        return result
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error processing chat turn for intake {intake_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process chat response from intake assistant. Please try again."
+        )
+
+@router.post(
+    "/{intake_id}/complete",
+    response_model=IntakeResponse,
+    summary="Mark an intake session as completed"
+)
+def mark_intake_complete(intake_id: str):
+    """
+    Explicitly marks an intake session as completed.
+    """
+    try:
+        return IntakeService.complete_intake(intake_id)
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error completing intake {intake_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
 
 @router.delete(
