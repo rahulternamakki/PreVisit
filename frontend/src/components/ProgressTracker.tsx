@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check, Dot } from "lucide-react";
+import { Check } from "lucide-react";
 import { ChatMessage } from "@/types/intake";
 
 interface ProgressTrackerProps {

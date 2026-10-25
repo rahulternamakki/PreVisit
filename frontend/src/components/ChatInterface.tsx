@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, AlertTriangle, CheckCircle, RefreshCcw } from "lucide-react";
-import { ChatMessage, IntakeSession } from "@/types/intake";
+import { Send, Bot, User, Loader2, AlertTriangle } from "lucide-react";
+import { IntakeSession } from "@/types/intake";
 import { EmergencyBanner } from "@/components/EmergencyBanner";
 import { checkClientEmergency } from "@/lib/safety";
 
@@ -121,7 +121,6 @@ export function ChatInterface({
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {intake.chat_transcript.map((msg, index) => {
           const isUser = msg.role === "user";
-          const isAssistant = msg.role === "assistant";
 
           // Format timestamp
           const timeStr = msg.timestamp

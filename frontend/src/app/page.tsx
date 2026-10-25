@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ProgressTracker } from "@/components/ProgressTracker";
 import { PatientEntryForm } from "@/components/PatientEntryForm";
@@ -14,7 +14,7 @@ import {
   completeIntake,
   checkBackendHealth,
 } from "@/lib/api";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const STORAGE_KEY = "previsit_active_intake_id";
 

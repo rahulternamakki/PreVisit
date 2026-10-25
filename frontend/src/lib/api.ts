@@ -1,4 +1,5 @@
-import { IntakeSession, ChatResponse } from "@/types/intake";
+import { IntakeSession, ChatResponse, StructuredClinicalSummary, RedFlag } from "@/types/intake";
+import { DoctorLoginResponse, DoctorQueueResponse } from "@/types/doctor";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -105,8 +106,8 @@ export async function getSummary(intakeId: string): Promise<{
   patient_name: string;
   patient_age: number;
   chief_complaint?: string;
-  summary: any;
-  red_flags: any[];
+  summary: StructuredClinicalSummary | null;
+  red_flags: RedFlag[];
   urgency_level: string;
   status: string;
 }> {
@@ -136,4 +137,115 @@ export async function checkBackendHealth(): Promise<{ ok: boolean; message: stri
     const msg = err instanceof Error ? err.message : "Network unreachable";
     return { ok: false, message: msg };
   }
+}
+
+// ============================================================================
+// Phase 4: Doctor Dashboard API Client Methods
+// ============================================================================
+
+export async function doctorLogin(passcode: string): Promise<DoctorLoginResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/doctor/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ passcode: passcode.trim() }),
+  });
+  return handleResponse<DoctorLoginResponse>(res);
+}
+
+export async function doctorVerifySession(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/doctor/verify`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function getDoctorQueue(
+  token: string,
+  options?: {
+    status?: string;
+    urgency_level?: string;
+    search?: string;
+  }
+): Promise<DoctorQueueResponse> {
+  const params = new URLSearchParams();
+  if (options?.status && options.status !== "all") {
+    params.set("status", options.status);
+  }
+  if (options?.urgency_level && options.urgency_level !== "all") {
+    params.set("urgency_level", options.urgency_level);
+  }
+  if (options?.search && options.search.trim()) {
+    params.set("search", options.search.trim());
+  }
+
+  const queryStr = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(`${API_BASE_URL}/api/doctor/queue${queryStr}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return handleResponse<DoctorQueueResponse>(res);
+}
+
+export async function getDoctorIntakeDetail(
+  token: string,
+  intakeId: string
+): Promise<IntakeSession> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/doctor/intakes/${encodeURIComponent(intakeId)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return handleResponse<IntakeSession>(res);
+}
+
+export async function updateDoctorIntakeStatus(
+  token: string,
+  intakeId: string,
+  status: string
+): Promise<IntakeSession> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/doctor/intakes/${encodeURIComponent(intakeId)}/status`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    }
+  );
+
+  return handleResponse<IntakeSession>(res);
+}
+
+export async function seedDoctorClinicalSamples(
+  token: string
+): Promise<{ message: string; seeded_count: number; samples: Array<Record<string, unknown>> }> {
+  const res = await fetch(`${API_BASE_URL}/api/doctor/seed-samples`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return handleResponse<{ message: string; seeded_count: number; samples: Array<Record<string, unknown>> }>(res);
 }

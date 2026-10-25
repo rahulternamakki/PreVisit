@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from config import settings
 from database import check_database_connection
 from routers.intakes import router as intakes_router
+from routers.doctor import router as doctor_router
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -35,6 +36,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(intakes_router)
+app.include_router(doctor_router)
 
 @app.get("/")
 def root():
