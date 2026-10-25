@@ -149,6 +149,67 @@ def mark_intake_complete(intake_id: str):
         logger.error(f"Error completing intake {intake_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
 
+@router.post(
+    "/{intake_id}/summary",
+    response_model=IntakeResponse,
+    summary="Generate or re-generate clinical summary and red flags"
+)
+@router.post(
+    "/{intake_id}/generate-summary",
+    response_model=IntakeResponse,
+    summary="Generate or re-generate clinical summary (alias)"
+)
+def generate_summary(intake_id: str):
+    """
+    Analyzes patient conversation transcript, generates a structured clinical summary,
+    extracts red flags with exact patient quotes, strictly validates against Pydantic schema
+    with 1 automatic retry on failure, and persists the results in Supabase.
+    """
+    try:
+        return IntakeService.generate_and_save_summary(intake_id)
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error generating summary for intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate clinical summary: {e}")
+
+@router.get(
+    "/{intake_id}/summary",
+    summary="Retrieve the structured clinical summary for an intake session"
+)
+def get_intake_summary(intake_id: str):
+    """
+    Retrieves the clinical summary, red flags, and triage urgency for an intake.
+    """
+    try:
+        intake = IntakeService.get_intake_by_id(intake_id)
+        if not intake.get("summary"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Clinical summary has not been generated for this intake yet."
+            )
+        return {
+            "intake_id": intake["id"],
+            "patient_name": intake["patient_name"],
+            "patient_age": intake["patient_age"],
+            "chief_complaint": intake.get("chief_complaint"),
+            "summary": intake["summary"],
+            "red_flags": intake.get("red_flags", []),
+            "urgency_level": intake.get("urgency_level", "routine"),
+            "status": intake.get("status")
+        }
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching summary for intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error.")
+
 @router.delete(
     "/{intake_id}",
     status_code=status.HTTP_204_NO_CONTENT,

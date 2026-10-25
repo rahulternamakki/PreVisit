@@ -65,7 +65,9 @@ class TestFullClinicalIntakeSimulation(unittest.TestCase):
             # Explicitly complete intake if not already completed
             completed = IntakeService.complete_intake(intake_id)
             self.assertEqual(completed["status"], "completed")
-            print("[+] Successfully completed full clinical intake simulation!")
+            self.assertIsNotNone(completed.get("summary"), "Expected clinical summary to be generated upon completion.")
+            self.assertTrue(len(completed["summary"].get("symptoms", [])) > 0)
+            print("[+] Successfully completed full clinical intake and summary simulation!")
 
         finally:
             IntakeService.delete_intake(intake_id)

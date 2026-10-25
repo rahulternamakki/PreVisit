@@ -15,13 +15,25 @@ export interface RedFlag {
 export type UrgencyLevel = "routine" | "urgent" | "emergency";
 export type IntakeStatus = "in_progress" | "completed" | "reviewed" | "archived";
 
+export interface StructuredClinicalSummary {
+  chief_complaint?: string | null;
+  history_of_present_illness?: string | null;
+  symptoms?: string[];
+  medical_history?: string[];
+  medications?: string[];
+  allergies?: string[];
+  urgency?: UrgencyLevel;
+  suggested_questions?: string[];
+  red_flags?: RedFlag[];
+}
+
 export interface IntakeSession {
   id: string;
   patient_name: string;
   patient_age: number;
   chief_complaint?: string | null;
   chat_transcript: ChatMessage[];
-  summary?: Record<string, unknown> | null;
+  summary?: StructuredClinicalSummary | null;
   red_flags: RedFlag[];
   urgency_level: UrgencyLevel;
   status: IntakeStatus;

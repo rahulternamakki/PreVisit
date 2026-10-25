@@ -11,19 +11,64 @@ class ChatMessage(BaseModel):
     )
 
 class RedFlag(BaseModel):
-    reason: str = Field(..., description="Clinical reason this symptom or statement was flagged")
-    patient_quote: str = Field(..., description="Exact quote from the patient transcript")
+    reason: str = Field(..., min_length=3, description="Clinical reason this symptom or statement was flagged")
+    patient_quote: str = Field(..., min_length=1, description="Exact quote from the patient transcript")
     severity: Literal["urgent", "emergency"] = "urgent"
+
+    @field_validator("reason", "patient_quote")
+    def text_not_blank(cls, v: str) -> str:
+        v_stripped = v.strip()
+        if not v_stripped:
+            raise ValueError("Field cannot be empty or whitespace only")
+        return v_stripped
 
 class StructuredSummary(BaseModel):
     chief_complaint: Optional[str] = None
     history_of_present_illness: Optional[str] = None
-    symptoms: Optional[List[str]] = Field(default_factory=list)
-    medical_history: Optional[List[str]] = Field(default_factory=list)
-    medications: Optional[List[str]] = Field(default_factory=list)
-    allergies: Optional[List[str]] = Field(default_factory=list)
-    urgency: Optional[Literal["routine", "urgent", "emergency"]] = "routine"
-    suggested_questions: Optional[List[str]] = Field(default_factory=list)
+    symptoms: List[str] = Field(default_factory=list)
+    medical_history: List[str] = Field(default_factory=list)
+    medications: List[str] = Field(default_factory=list)
+    allergies: List[str] = Field(default_factory=list)
+    urgency: Literal["routine", "urgent", "emergency"] = "routine"
+    suggested_questions: List[str] = Field(default_factory=list)
+    red_flags: Optional[List[RedFlag]] = Field(default_factory=list)
+
+    @field_validator("symptoms", "medical_history", "medications", "allergies", "suggested_questions", mode="before")
+    def clean_string_list(cls, v: Any) -> List[str]:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            v = [v]
+        if isinstance(v, list):
+            cleaned = []
+            for item in v:
+                if isinstance(item, str):
+                    s = item.strip()
+                    if s:
+                        cleaned.append(s)
+            return cleaned
+        return []
+
+    @field_validator("chief_complaint", "history_of_present_illness", mode="before")
+    def clean_text_field(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip()
+            return s if s else None
+        return str(v)
+
+class ClinicalExtraction(BaseModel):
+    summary: StructuredSummary
+    red_flags: List[RedFlag] = Field(default_factory=list)
+    urgency: Literal["routine", "urgent", "emergency"] = "routine"
+
+class SummaryResponse(BaseModel):
+    intake_id: str
+    summary: StructuredSummary
+    red_flags: List[RedFlag] = Field(default_factory=list)
+    urgency_level: Literal["routine", "urgent", "emergency"]
+    status: str
 
 class IntakeCreate(BaseModel):
     patient_name: str = Field(..., min_length=1, max_length=255, description="Full name of patient")

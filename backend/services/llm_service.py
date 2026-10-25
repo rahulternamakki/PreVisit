@@ -1,8 +1,11 @@
+import json
 import logging
 import re
 from typing import List, Dict, Any, Tuple, Optional
 from groq import Groq
+from pydantic import ValidationError
 from config import settings
+from schemas.intake import RedFlag, StructuredSummary, ClinicalExtraction
 
 logger = logging.getLogger("previsit.llm_service")
 
@@ -85,8 +88,193 @@ MANDATORY RULES:
 6. EMPATHY & CLARITY: Maintain a supportive, reassuring tone. Use 6th-grade reading level. Keep responses brief (1 to 2 sentences maximum, ending with your single question).
 7. EMERGENCY PROTOCOL: If the patient mentions life-threatening symptoms (e.g. chest pain, severe shortness of breath, stroke signs, thoughts of self-harm), urgently instruct them to call 911 or go to the nearest emergency room immediately.
 8. COMPLETION TRIGGER: When all intake domains (symptoms, onset/duration, severity, associated symptoms, medical history, medications, allergies) have been answered, wrap up the interview warmly by telling {patient_name} that all necessary preliminary details have been recorded for their doctor.
-   Always write a friendly closing message first, and then append the token [INTAKE_COMPLETE] at the very end. Never output [INTAKE_COMPLETE] by itself without the closing message text.
+    Always write a friendly closing message first, and then append the token [INTAKE_COMPLETE] at the very end. Never output [INTAKE_COMPLETE] by itself without the closing message text.
 """
+
+def format_transcript_for_summary(transcript: List[Dict[str, Any]], patient_name: str) -> str:
+    """Formats chat transcript for the summary prompt."""
+    formatted_lines = []
+    for msg in transcript:
+        role = msg.get("role")
+        content = (msg.get("content") or "").strip()
+        if not content:
+            continue
+        speaker = patient_name if role == "user" else "PreVisit Assistant"
+        formatted_lines.append(f"{speaker}: {content}")
+    return "\n".join(formatted_lines)
+
+def is_quote_grounded_in_transcript(quote: str, transcript: List[Dict[str, Any]]) -> bool:
+    """
+    Verifies if a red-flag patient quote is authentically grounded in what the
+    patient actually said during the conversation, preventing AI hallucinations.
+    """
+    if not quote or not quote.strip():
+        return False
+
+    patient_statements = [
+        msg.get("content", "").strip()
+        for msg in transcript
+        if msg.get("role") == "user"
+    ]
+    if not patient_statements:
+        return False
+
+    def normalize_text(text: str) -> str:
+        text = re.sub(r"[^\w\s]", " ", text.lower())
+        return " ".join(text.split())
+
+    norm_quote = normalize_text(quote)
+    if not norm_quote:
+        return False
+
+    combined_norm_statements = " ".join(normalize_text(s) for s in patient_statements)
+
+    # 1. Exact or normalized substring match
+    if norm_quote in combined_norm_statements:
+        return True
+
+    for s in patient_statements:
+        if norm_quote in normalize_text(s):
+            return True
+
+    # 2. Substantial word overlap for minor variations
+    quote_words = norm_quote.split()
+    if len(quote_words) <= 2:
+        return False
+
+    matched_words = sum(1 for w in quote_words if w in combined_norm_statements)
+    if (matched_words / len(quote_words)) >= 0.85:
+        return True
+
+    return False
+
+def build_summary_system_prompt(patient_name: str, patient_age: int) -> str:
+    """Constructs the strict clinical system prompt for summary and red flag generation."""
+    return f"""You are PreVisit's Senior Clinical AI Documentation and Triage Specialist.
+Your task is to analyze the complete intake transcript between {patient_name} (age {patient_age}) and the PreVisit assistant, and produce a structured clinical summary and identify any clinical red flags for the attending doctor.
+
+PATIENT PROFILE:
+- Name: {patient_name}
+- Age: {patient_age}
+
+MANDATORY CLINICAL & SAFETY RULES:
+1. STRICT FACTUAL GROUNDING (ZERO HALLUCINATION):
+   - You MUST rely EXCLUSIVELY on facts explicitly stated by the patient in the transcript.
+   - NEVER assume, guess, extrapolate, or invent missing clinical details.
+   - If an intake domain (such as past medical history, current medications, or allergies) was not discussed or not mentioned by the patient, output an EMPTY list ([]).
+   - If the patient explicitly stated they have none (e.g. "no medications", "no past history", "no allergies"), record ["None reported"] or an empty list ([]).
+   - NEVER invent diagnoses or suggest hypothetical conditions.
+
+2. SUMMARY SECTIONS REQUIRED:
+   - chief_complaint: The primary symptom or reason for visit stated by the patient (concise phrase).
+   - history_of_present_illness: Factual, chronologically organized clinical narrative covering onset, duration, location, severity, character, aggravating/alleviating factors, and related course.
+   - symptoms: List of all distinct symptoms explicitly reported by the patient.
+   - medical_history: List of pre-existing conditions, chronic illnesses, or past surgeries explicitly mentioned. Empty list if none mentioned.
+   - medications: List of current prescriptions, over-the-counter drugs, vitamins, or supplements explicitly mentioned. Empty list if none mentioned.
+   - allergies: List of drug, food, or environmental allergies mentioned by the patient. Empty list if none mentioned.
+   - urgency: Overall triage urgency: "routine", "urgent", or "emergency".
+   - suggested_questions: 3 to 5 clinically high-yield, specific questions for the doctor to ask during the consultation.
+
+3. RED FLAGS GENERATION (CRITICAL):
+   - Review the transcript for findings that need the doctor's immediate or prompt attention.
+   - For EACH red flag identified, you MUST provide:
+     * "reason": Precise clinical rationale explaining why this symptom or statement requires priority doctor evaluation.
+     * "patient_quote": The EXACT, VERBATIM words or phrase spoken by the patient in the transcript. Do NOT paraphrase, summarize, or fabricate quotes.
+     * "severity": Either "urgent" (prompt review within 24h) or "emergency" (acute life-threatening danger, such as chest pain, severe shortness of breath, stroke signs, anaphylaxis, severe hemorrhage, self-harm).
+   - If there are no red flags, return an empty list ([]).
+
+4. URGENCY LEVEL CONSISTENCY:
+   - If ANY red flag has severity "emergency", the overall urgency MUST be "emergency".
+   - If ANY red flag has severity "urgent" and none are "emergency", the overall urgency MUST be "urgent".
+   - If there are no red flags, the urgency is "routine".
+
+OUTPUT FORMAT:
+Return a strictly valid JSON object matching this schema:
+{{
+  "summary": {{
+    "chief_complaint": "string or null",
+    "history_of_present_illness": "string",
+    "symptoms": ["string"],
+    "medical_history": ["string"],
+    "medications": ["string"],
+    "allergies": ["string"],
+    "urgency": "routine" | "urgent" | "emergency",
+    "suggested_questions": ["string"]
+  }},
+  "red_flags": [
+    {{
+      "reason": "string",
+      "patient_quote": "exact words spoken by patient",
+      "severity": "urgent" | "emergency"
+    }}
+  ],
+  "urgency": "routine" | "urgent" | "emergency"
+}}
+"""
+
+def parse_and_validate_summary_json(content: str, transcript: List[Dict[str, Any]], patient_name: str = "Patient") -> ClinicalExtraction:
+    """
+    Parses and validates the raw JSON response from Groq using Pydantic.
+    Enforces quote grounding against the patient transcript.
+    """
+    clean_content = content.strip()
+    if clean_content.startswith("```"):
+        clean_content = re.sub(r"^```(?:json)?\s*", "", clean_content)
+        clean_content = re.sub(r"\s*```$", "", clean_content)
+
+    try:
+        raw_data = json.loads(clean_content)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON response: {e}")
+
+    if not isinstance(raw_data, dict):
+        raise ValueError("LLM response must be a valid JSON dictionary.")
+
+    # Support nested {"summary": {...}, "red_flags": [...], "urgency": "..."}
+    # or flat {"chief_complaint": ..., "red_flags": [...]}
+    if "summary" in raw_data and isinstance(raw_data["summary"], dict):
+        summary_dict = dict(raw_data["summary"])
+        red_flags_list = raw_data.get("red_flags", [])
+        urgency_val = raw_data.get("urgency", summary_dict.get("urgency", "routine"))
+    else:
+        summary_dict = dict(raw_data)
+        red_flags_list = summary_dict.pop("red_flags", [])
+        urgency_val = summary_dict.get("urgency", "routine")
+
+    if not isinstance(red_flags_list, list):
+        raise ValueError("'red_flags' must be a list.")
+
+    # Validate red flags
+    validated_red_flags: List[RedFlag] = []
+    for item in red_flags_list:
+        if not isinstance(item, dict):
+            raise ValueError("Each red flag must be a JSON object with reason, patient_quote, and severity.")
+        rf = RedFlag(**item)
+        if not is_quote_grounded_in_transcript(rf.patient_quote, transcript):
+            raise ValueError(
+                f"Red flag patient_quote '{rf.patient_quote}' was not found in the patient's messages in the transcript. "
+                "All red flag quotes must be exact words spoken by the patient."
+            )
+        validated_red_flags.append(rf)
+
+    # Determine final urgency
+    final_urgency = urgency_val if urgency_val in ["routine", "urgent", "emergency"] else "routine"
+    if any(rf.severity == "emergency" for rf in validated_red_flags):
+        final_urgency = "emergency"
+    elif any(rf.severity == "urgent" for rf in validated_red_flags) and final_urgency != "emergency":
+        final_urgency = "urgent"
+
+    summary_dict["urgency"] = final_urgency
+    summary_dict["red_flags"] = validated_red_flags
+
+    # Validate StructuredSummary with Pydantic
+    summary_obj = StructuredSummary(**summary_dict)
+
+    return ClinicalExtraction(
+        summary=summary_obj,
+        red_flags=validated_red_flags,
+        urgency=final_urgency
+    )
 
 class LLMService:
     @staticmethod
@@ -172,3 +360,98 @@ class LLMService:
         except Exception as e:
             logger.error(f"Error calling Groq LLM: {e}")
             raise RuntimeError(f"LLM generation failed: {e}")
+
+    @classmethod
+    def generate_summary_and_red_flags(
+        cls,
+        patient_name: str,
+        patient_age: int,
+        transcript: List[Dict[str, Any]],
+        chief_complaint: Optional[str] = None
+    ) -> ClinicalExtraction:
+        """
+        Transforms the patient intake conversation into a validated, structured clinical summary
+        and detects urgent red flags with exact patient quotes.
+        
+        Strictly validates output using Pydantic and automatically retries once if validation fails.
+        """
+        # Ensure there are patient statements
+        user_messages = [m for m in transcript if m.get("role") == "user"]
+        if not user_messages:
+            raise ValueError("Cannot generate summary: Transcript has no messages from the patient.")
+
+        client = cls.get_client()
+        system_prompt = build_summary_system_prompt(patient_name, patient_age)
+        formatted_transcript = format_transcript_for_summary(transcript, patient_name)
+        
+        user_prompt = (
+            f"Here is the completed intake conversation for {patient_name} (Age {patient_age}):\n\n"
+            f"--- TRANSCRIPT START ---\n"
+            f"{formatted_transcript}\n"
+            f"--- TRANSCRIPT END ---\n\n"
+            f"Generate the structured summary and identify red flags now according to the required JSON schema. "
+            f"Remember: use ONLY facts explicitly stated by {patient_name}. Leave unmentioned items empty ([]). "
+            f"Every red flag patient_quote MUST be an exact quote from {patient_name}'s messages above."
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        # Attempt 1
+        logger.info(f"Generating clinical summary for {patient_name} (Attempt 1 of 2)...")
+        raw_output_attempt_1 = ""
+        last_error_msg = ""
+        try:
+            response = client.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=2000,
+                response_format={"type": "json_object"}
+            )
+            raw_output_attempt_1 = response.choices[0].message.content or ""
+            return parse_and_validate_summary_json(raw_output_attempt_1, transcript, patient_name)
+
+        except (json.JSONDecodeError, ValidationError, ValueError) as err:
+            last_error_msg = str(err)
+            logger.warning(
+                f"Summary generation attempt 1 failed validation for {patient_name}: {last_error_msg}. "
+                "Initiating automatic retry 1 of 1 with corrective feedback..."
+            )
+
+        # Attempt 2 (Automatic Retry)
+        corrective_user_message = (
+            f"Your previous JSON response failed validation with the following error:\n{last_error_msg}\n\n"
+            f"Please regenerate the complete JSON object, strictly fixing this error:\n"
+            f"- Ensure valid JSON format.\n"
+            f"- Adhere strictly to the required schema: 'summary' object, 'red_flags' array, and 'urgency'.\n"
+            f"- In 'red_flags', ensure 'patient_quote' is an EXACT, VERBATIM quote spoken by {patient_name} in the transcript.\n"
+            f"- Do NOT assume, extrapolate, or invent missing facts; use empty list ([]) if not mentioned."
+        )
+
+        retry_messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": raw_output_attempt_1 or "{}"},
+            {"role": "user", "content": corrective_user_message}
+        ]
+
+        try:
+            logger.info(f"Retrying clinical summary generation for {patient_name} (Attempt 2 of 2)...")
+            response = client.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=retry_messages,
+                temperature=0.1,
+                max_tokens=2000,
+                response_format={"type": "json_object"}
+            )
+            raw_output_attempt_2 = response.choices[0].message.content or ""
+            validated = parse_and_validate_summary_json(raw_output_attempt_2, transcript, patient_name)
+            logger.info(f"Clinical summary generation succeeded on retry for {patient_name}.")
+            return validated
+
+        except Exception as retry_err:
+            logger.error(f"Clinical summary generation failed after retry: {retry_err}")
+            raise RuntimeError(f"Clinical summary generation failed validation after retry: {retry_err}")

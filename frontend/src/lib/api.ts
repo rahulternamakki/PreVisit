@@ -88,6 +88,39 @@ export async function completeIntake(intakeId: string): Promise<IntakeSession> {
   return handleResponse<IntakeSession>(res);
 }
 
+export async function generateSummary(intakeId: string): Promise<IntakeSession> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/intakes/${encodeURIComponent(intakeId)}/summary`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+
+  return handleResponse<IntakeSession>(res);
+}
+
+export async function getSummary(intakeId: string): Promise<{
+  intake_id: string;
+  patient_name: string;
+  patient_age: number;
+  chief_complaint?: string;
+  summary: any;
+  red_flags: any[];
+  urgency_level: string;
+  status: string;
+}> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/intakes/${encodeURIComponent(intakeId)}/summary`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+
+  return handleResponse(res);
+}
+
 export async function checkBackendHealth(): Promise<{ ok: boolean; message: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/health`, {

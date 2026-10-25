@@ -208,6 +208,13 @@ class IntakeService:
             raise RuntimeError(f"Failed to persist chat exchange in intake '{valid_id}'.")
         updated_intake = res.data[0]
 
+        # Automatically generate clinical summary if complete
+        if is_complete:
+            try:
+                updated_intake = IntakeService.generate_and_save_summary(valid_id)
+            except Exception as e:
+                logger.error(f"Automatic summary generation failed on completion for intake {valid_id}: {e}")
+
         return {
             "message": assistant_entry,
             "intake": updated_intake,
@@ -217,11 +224,86 @@ class IntakeService:
         }
 
     @staticmethod
-    def complete_intake(intake_id: str) -> Dict[str, Any]:
+    def generate_and_save_summary(intake_id: str) -> Dict[str, Any]:
         """
-        Manually or explicitly marks an intake as completed.
+        Generates a validated structured clinical summary and extracts red flags
+        with exact patient quotes, then persists them to Supabase.
         """
         valid_id = validate_uuid(intake_id)
+        current_intake = IntakeService.get_intake_by_id(valid_id)
+
+        patient_name = current_intake.get("patient_name", "Patient")
+        patient_age = current_intake.get("patient_age", 30)
+        chief_complaint = current_intake.get("chief_complaint")
+        transcript = list(current_intake.get("chat_transcript") or [])
+        existing_red_flags = list(current_intake.get("red_flags") or [])
+        current_urgency = current_intake.get("urgency_level", "routine")
+
+        # Must have at least one user message
+        user_messages = [m for m in transcript if m.get("role") == "user"]
+        if not user_messages:
+            raise ValueError("Cannot generate summary: Transcript contains no patient messages.")
+
+        # Generate summary and red flags via LLM with strict Pydantic validation & retry
+        extraction = LLMService.generate_summary_and_red_flags(
+            patient_name=patient_name,
+            patient_age=patient_age,
+            transcript=transcript,
+            chief_complaint=chief_complaint
+        )
+
+        # Merge newly extracted red flags with existing emergency flags
+        merged_red_flags = list(existing_red_flags)
+        for rf in extraction.red_flags:
+            rf_dict = rf.model_dump()
+            # Check for duplicates based on quote or reason
+            if not any(
+                existing.get("patient_quote") == rf_dict["patient_quote"] or
+                existing.get("reason") == rf_dict["reason"]
+                for existing in merged_red_flags
+            ):
+                merged_red_flags.append(rf_dict)
+
+        # Determine overall urgency prioritizing emergency > urgent > routine
+        final_urgency = "routine"
+        if any(rf.get("severity") == "emergency" for rf in merged_red_flags) or current_urgency == "emergency" or extraction.urgency == "emergency":
+            final_urgency = "emergency"
+        elif any(rf.get("severity") == "urgent" for rf in merged_red_flags) or current_urgency == "urgent" or extraction.urgency == "urgent":
+            final_urgency = "urgent"
+
+        summary_dict = extraction.summary.model_dump()
+        summary_dict["urgency"] = final_urgency
+        summary_dict["red_flags"] = merged_red_flags
+
+        final_chief_complaint = chief_complaint or extraction.summary.chief_complaint
+
+        update_payload = {
+            "summary": summary_dict,
+            "red_flags": merged_red_flags,
+            "urgency_level": final_urgency,
+            "status": "completed",
+            "chief_complaint": final_chief_complaint
+        }
+
+        client = get_supabase_client()
+        res = client.table("intakes").update(update_payload).eq("id", valid_id).execute()
+        if not res.data:
+            raise RuntimeError(f"Failed to persist clinical summary for intake '{valid_id}'.")
+        return res.data[0]
+
+    @staticmethod
+    def complete_intake(intake_id: str) -> Dict[str, Any]:
+        """
+        Manually or explicitly marks an intake as completed and generates the summary.
+        """
+        valid_id = validate_uuid(intake_id)
+        current = IntakeService.get_intake_by_id(valid_id)
+        user_messages = [m for m in (current.get("chat_transcript") or []) if m.get("role") == "user"]
+        
+        # If user messages exist, generate summary
+        if user_messages:
+            return IntakeService.generate_and_save_summary(valid_id)
+
         client = get_supabase_client()
         res = client.table("intakes").update({"status": "completed"}).eq("id", valid_id).execute()
         if not res.data:

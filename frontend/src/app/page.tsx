@@ -187,6 +187,7 @@ export default function Home() {
           <IntakeCompletedView
             intake={intake}
             onNewIntake={handleNewIntake}
+            onUpdateIntake={setIntake}
           />
         ) : (
           <ChatInterface
