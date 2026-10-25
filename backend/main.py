@@ -18,9 +18,9 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS setup - strictly allow configured frontend origin and local dev
-origins = list(set([
-    settings.FRONTEND_URL.rstrip("/"),
+# CORS setup - allow configured frontend origin(s), Vercel deployments, and local dev
+configured_origins = [url.strip().rstrip("/") for url in settings.FRONTEND_URL.split(",") if url.strip()]
+origins = list(set(configured_origins + [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]))
@@ -28,9 +28,10 @@ origins = list(set([
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Accept"],
+    allow_headers=["*"],
 )
 
 # HTTP Security Headers Middleware (OWASP recommended defense-in-depth)
