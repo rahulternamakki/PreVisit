@@ -1,0 +1,141 @@
+import logging
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query, status
+from schemas.intake import (
+    IntakeCreate,
+    IntakeUpdate,
+    AppendMessageRequest,
+    IntakeResponse,
+)
+from services.intake_service import IntakeService, IntakeNotFoundError
+
+logger = logging.getLogger("previsit.routers.intakes")
+
+router = APIRouter(prefix="/api/intakes", tags=["Intakes"])
+
+def _handle_value_error(e: ValueError):
+    """Distinguishes between configuration errors (503) and client input errors (400)."""
+    err_str = str(e)
+    if "credentials" in err_str.lower() or "supabase" in err_str.lower():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=err_str)
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_str)
+
+@router.post(
+    "",
+    response_model=IntakeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new patient intake session"
+)
+def create_intake(payload: IntakeCreate):
+    """
+    Initializes a patient intake record when the patient enters name and age.
+    Securely stored in Supabase with RLS enabled.
+    """
+    try:
+        record = IntakeService.create_intake(payload)
+        return record
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error creating intake: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
+
+@router.get(
+    "/{intake_id}",
+    response_model=IntakeResponse,
+    summary="Retrieve an intake session by ID"
+)
+def get_intake(intake_id: str):
+    """
+    Retrieves full intake data including chat transcript and clinical summary.
+    """
+    try:
+        return IntakeService.get_intake_by_id(intake_id)
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error retrieving intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
+
+@router.patch(
+    "/{intake_id}",
+    response_model=IntakeResponse,
+    summary="Update an intake session"
+)
+def update_intake(intake_id: str, payload: IntakeUpdate):
+    """
+    Updates intake fields such as status, urgency level, chief complaint, or summary.
+    """
+    try:
+        return IntakeService.update_intake(intake_id, payload)
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error updating intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
+
+@router.post(
+    "/{intake_id}/messages",
+    response_model=IntakeResponse,
+    summary="Append a chat message to the transcript"
+)
+def append_message(intake_id: str, payload: AppendMessageRequest):
+    """
+    Appends a user or assistant message to the chat transcript in Supabase.
+    Ensures message persistence after each turn so patients never lose progress.
+    """
+    try:
+        return IntakeService.append_message(intake_id, payload)
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error appending message to intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
+
+@router.delete(
+    "/{intake_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an intake session"
+)
+def delete_intake(intake_id: str):
+    """
+    Permanently deletes an intake session.
+    """
+    try:
+        IntakeService.delete_intake(intake_id)
+        return None
+    except IntakeNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error deleting intake {intake_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")
+
+@router.get(
+    "",
+    response_model=List[IntakeResponse],
+    summary="List intakes for Doctor Dashboard"
+)
+def list_intakes(
+    status: Optional[str] = Query(None, description="Filter by status (e.g. completed, in_progress)"),
+    urgency_level: Optional[str] = Query(None, description="Filter by urgency (routine, urgent, emergency)"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0)
+):
+    """
+    Lists intake records with optional filtering. Used by the Doctor Dashboard triage queue.
+    """
+    try:
+        return IntakeService.list_intakes(status=status, urgency_level=urgency_level, limit=limit, offset=offset)
+    except ValueError as e:
+        _handle_value_error(e)
+    except Exception as e:
+        logger.error(f"Error listing intakes: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal database error.")

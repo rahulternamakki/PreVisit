@@ -1,9 +1,9 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import settings
+from database import check_database_connection
+from routers.intakes import router as intakes_router
 
 app = FastAPI(
     title="PreVisit API",
@@ -12,11 +12,11 @@ app = FastAPI(
 )
 
 # CORS setup
-origins = [
-    os.getenv("FRONTEND_URL", "http://localhost:3000"),
+origins = list(set([
+    settings.FRONTEND_URL.rstrip("/"),
     "http://localhost:3000",
-    "http://127.0.0.1:3000"
-]
+    "http://127.0.0.1:3000",
+]))
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +25,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include Routers
+app.include_router(intakes_router)
 
 @app.get("/")
 def root():
@@ -36,11 +39,20 @@ def root():
 
 @app.get("/health")
 def health_check():
+    db_health = check_database_connection()
     return {
         "status": "ok",
-        "environment": os.getenv("ENVIRONMENT", "development")
+        "environment": settings.ENVIRONMENT,
+        "database": db_health
     }
+
+@app.get("/api/database/status")
+def database_status():
+    """
+    Dedicated endpoint to verify Supabase connection & table readiness.
+    """
+    return check_database_connection()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True)
